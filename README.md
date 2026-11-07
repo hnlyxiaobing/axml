@@ -2,7 +2,7 @@
 
 **Android 二进制 XML（AXML）解析器 —— 把 AXML 字节流解析为文档树，纯 MoonBit 实现。**
 
-> 状态：**Round-1 架构与声明可评审**。已写入数据结构与 `declare` 签名，`moon check` 0 error（5 条预期 `0068` 告警）。**无业务逻辑**。
+> 状态（R2 冻结前整改轮，2026-11-07）：**实现完成并通过全部门禁**。`parse` 与全部访问器均为真实实现（包内无 `declare` 存根、无 `0068` 告警）：`moon check --deny-warn` 0 error / 0 warning，`moon test` 40/40，`moon fmt --check` 通过。R2 P0 整改：删除无实现者的 `DocumentView` trait，并完成 API / 设计 / README 与 `pkg.generated.mbti` 快照的逐项对账。
 
 ## 定位与为什么存在
 
@@ -14,15 +14,15 @@
 
 - **做**：`RES_XML_TYPE` chunk 解析；字符串池 UTF-8 / UTF-16 双编码；节点树（namespace / start / end element / cdata）；typed attribute 的 `res0` / `dataType` / `data`；resource map 索引保留。
 - **不做**：资源引用语义（`@ref` / `?attr`）、manifest 语义（package/activity/权限的解释属上层）、`resources.arsc`、AXML 回编、XML 序列化、厂商变体的自动修复。
-- **上界**：一个库只解析一种格式；**下界**：不抽象跨格式通用接口（架构原则 P1）。
+- **上界**：一个库只解析一种格式；**下界**：不抽象跨格式通用接口（架构原则 P1）；不提供 trait 形式的视图/遍历契约（R2 已删除 `DocumentView`）。
 
 ## 公开接口（速览）
 
-`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`。完整签名与语义见 `API.md`。
+`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`——全部为具体方法，本包**不导出任何 trait**。完整签名与语义见 `API.md`。
 
 ## 依赖
 
-- **本轮零依赖**：独立 `moon.mod`，无 `moon.pkg` import，`moon check` 独立通过。
+- **零依赖**：独立 `moon.mod`，`moon.pkg` 无显式 import（零跨模块依赖），`moon check` 独立通过；`pkg.generated.mbti` 中的 `moonbitlang/core/debug` 仅来自 `AxmlError` 的 `#derive(Debug)`。
 - 后续轮：无第三方依赖计划；`iceBear67/classfile@0.2.0` 仅作**设计参照**（该包 `build_status=legacy`、仍带 `moon.pkg.json`，v0.10.19 下不可直接依赖，见 ADR-0010）。
 
 ## 平台与许可风险
@@ -33,18 +33,20 @@
 
 ## 测试与验收
 
-- **测试策略**：真实 APK 的 AXML 黄金样本（UTF-8 / UTF-16 各一）；与 `aapt2 dump xmltree` 逐字段差分；畸形 chunk / 越界索引 / 非法 headerSize 注入测试；`moon test --enable-coverage`。
-- **验收标准**（实现轮）：正确读出目标 APK 的 package、activity、权限，与 aapt2 输出逐字段一致；两个真实 APK 的 manifest 解析无崩溃。
-- 依赖资产：真实 APK 目前**不在本工作区**（`docs/open-questions.md` Q1）。
+- **测试策略**：黄金样本（UTF-8 / UTF-16）在测试代码内**程序化构造**并逐字段断言；畸形 chunk / 越界索引 / 非法 headerSize / 厂商变体布局注入测试。工作区没有真实 APK 资产（`docs/open-questions.md` Q1），因此**不以程序化样本冒充真实格式兼容结论**。
+- **已实测验收**：`moon test` 40/40（26 黑盒 + 14 白盒）；`moon check --deny-warn`、`moon build`、`moon fmt --check` 全绿。
+- **待补做**：与 `aapt2 dump xmltree` 逐字段差分、真实 APK 解析无崩溃（依赖 Q1 资产就绪）。
 
 ## 当前状态 / 本轮产物
 
 | 项 | 状态 |
 |---|---|
-| `axml.mbt` 数据结构 + `declare` 签名 + 文档注释 | ✅ |
-| `pkg.generated.mbti` API 快照 | ✅（由 `moon check` 生成） |
-| 解析逻辑 / 黄金测试 / 厂商变体处理 | ❌ 后续轮，代码中以 `TODO(实现轮)` 标注 |
-| `moon check` | ✅ 0 error（5 × `0068`，预期） |
+| `axml.mbt` / `decode.mbt` 类型、错误模型与解析实现 | ✅ 真实实现（无 `declare` 存根、无 `0068` 告警） |
+| `pkg.generated.mbti` API 快照 | ✅ 现状有效；`moon info` 再生成由主控统一执行（子代理不运行、不改写） |
+| `DocumentView` trait | ✅ R2 已删除（`elements` 无 `raise` 与 `AxmlDoc::elements raise AxmlError` 不兼容，且全仓无实现者/消费者） |
+| 厂商变体处理 | ✅ `attributeStart`/`attributeSize > 20` 按步长跳过，`< 20` 报 `VendorVariant` |
+| `res0` / `data` 语义解释 | ❌ 保留原值，代码内 `TODO` 标注 |
+| 门禁 | ✅ `moon check --deny-warn` · `moon build` · `moon test` 40/40 · `moon fmt --check` |
 
 ## 文档索引
 

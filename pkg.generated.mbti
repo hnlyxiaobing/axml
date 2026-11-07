@@ -96,7 +96,3 @@ pub type NodeIndex = Int32
 pub type StringIndex = Int32
 
 // Traits
-pub trait DocumentView {
-  fn elements(Self) -> Array[XmlNode]
-  fn string_at(Self, Int32) -> String raise AxmlError
-}

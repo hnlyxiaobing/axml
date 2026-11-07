@@ -112,13 +112,6 @@ pub type StringIndex = Int32
 pub type NodeIndex = Int32
 
 ///|
-/// 只读文档视图契约。实现方必须保证 `elements` 返回稳定顺序（chunk 顺序）。
-pub trait DocumentView {
-  fn elements(Self) -> Array[XmlNode]
-  fn string_at(Self, StringIndex) -> String raise AxmlError
-}
-
-///|
 /// 解析一段完整 AXML 字节流（含 RES_XML_TYPE 头，不含 ZIP 封装）为文档树。
 ///
 /// - 参数：`data` 为只读字节切片，调用方持有所有权，本函数不转移、不缓存；
@@ -132,7 +125,7 @@ pub trait DocumentView {
 ///   厂商变体布局（attributeStart/attributeSize < 20）以 `VendorVariant` 报告；
 ///   未知字符串池标志位以 `UnsupportedEncoding` 报告。
 /// - 非目标：不解析资源引用、不提供 manifest 语义、不回编、不处理 resources.arsc。
-/// - TODO(实现轮)：res0/data 的语义解释（当前按 API.md 保留原值）。
+/// - TODO：`res0`/`data` 的语义解释（当前按 API.md 保留原值，语义确定后再实现）。
 pub fn parse(data : Bytes) -> AxmlDoc raise AxmlError {
   let limit = data.length()
   let doc_type = read_u16(data, 0, limit)
