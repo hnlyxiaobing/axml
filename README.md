@@ -2,7 +2,7 @@
 
 **Android 二进制 XML（AXML）解析器 —— 把 AXML 字节流解析为文档树，纯 MoonBit 实现。**
 
-> 状态（R2 冻结前整改轮，2026-11-07）：**实现完成并通过全部门禁**。`parse` 与全部访问器均为真实实现（包内无 `declare` 存根、无 `0068` 告警）：`moon check --deny-warn` 0 error / 0 warning，`moon test` 40/40，`moon fmt --check` 通过。R2 P0 整改：删除无实现者的 `DocumentView` trait，并完成 API / 设计 / README 与 `pkg.generated.mbti` 快照的逐项对账。
+> 状态（R2 冻结前整改轮，2026-11-07；同日 WP-1 加法性新增 resources.arsc 解析链）：**实现完成并通过全部门禁**。全部导出函数为真实实现（包内无 `declare` 存根）：`moon clean` / `moon check --deny-warn`（0 error / 0 warning）/ `moon build` / `moon test` 87/87 / `moon fmt --check` 全 exit 0。R2 P0 整改：删除无实现者的 `DocumentView` trait，并完成 API / 设计 / README 与 `pkg.generated.mbti` 快照的逐项对账（快照 diff 为纯加法性 +153 行）。
 
 ## 定位与为什么存在
 
@@ -12,13 +12,13 @@
 
 ## 能力范围 / 非目标
 
-- **做**：`RES_XML_TYPE` chunk 解析；字符串池 UTF-8 / UTF-16 双编码；节点树（namespace / start / end element / cdata）；typed attribute 的 `res0` / `dataType` / `data`；resource map 索引保留。
-- **不做**：资源引用语义（`@ref` / `?attr`）、manifest 语义（package/activity/权限的解释属上层）、`resources.arsc`、AXML 回编、XML 序列化、厂商变体的自动修复。
-- **上界**：一个库只解析一种格式；**下界**：不抽象跨格式通用接口（架构原则 P1）；不提供 trait 形式的视图/遍历契约（R2 已删除 `DocumentView`）。
+- **做**：`RES_XML_TYPE` chunk 解析；字符串池 UTF-8 / UTF-16 双编码；节点树（namespace / start / end element / cdata）；typed attribute 的 `res0` / `dataType` / `data`；resource map 索引保留。**（WP-1 新增）** `resources.arsc` 解析：表头 / 全局池 / `ResTable_package` / typeSpec / type（dense·OFFSET16·sparse 三种 entry offsets）/ entry（simple·bag·compact）/ `Res_value` 全类型；id → (包,类型,名,最优值) 查询（默认配置优先）；AXML 属性引用 → 人类可读值（`resolve_attr_value`）。
+- **不做**：动态引用改写、aapt2 式 qualifier 最优匹配、overlay/idmap 语义、继承包、bag 压平、`?attr` 主题求值（D1 降级项，API.md 有完整清单）；manifest 语义（package/activity/权限的解释属上层）；AXML 回编、XML 序列化、厂商变体的自动修复。
+- **上界**：一个库只解析一种格式（AXML + 其同层资源表）；**下界**：不抽象跨格式通用接口（架构原则 P1）；不提供 trait 形式的视图/遍历契约（R2 已删除 `DocumentView`）。
 
 ## 公开接口（速览）
 
-`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`——全部为具体方法，本包**不导出任何 trait**。完整签名与语义见 `API.md`。
+AXML 侧：`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`。resources.arsc 侧（WP-1 加法性新增）：`parse_arsc(Bytes) -> ResTable raise ArscError`、`ResTable::{lookup, lookup_all, find_id, package_by_id, format_value, resolve_id}`、`ResConfig::is_default`、`resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr`。全部为具体方法，本包**不导出任何 trait**。完整签名与语义见 `API.md`。
 
 ## 依赖
 
@@ -33,20 +33,21 @@
 
 ## 测试与验收
 
-- **测试策略**：黄金样本（UTF-8 / UTF-16）在测试代码内**程序化构造**并逐字段断言；畸形 chunk / 越界索引 / 非法 headerSize / 厂商变体布局注入测试。工作区没有真实 APK 资产（`docs/open-questions.md` Q1），因此**不以程序化样本冒充真实格式兼容结论**。
-- **已实测验收**：`moon test` 40/40（26 黑盒 + 14 白盒）；`moon check --deny-warn`、`moon build`、`moon fmt --check` 全绿。
-- **待补做**：与 `aapt2 dump xmltree` 逐字段差分、真实 APK 解析无崩溃（依赖 Q1 资产就绪）。
+- **测试策略**：黄金样本在测试代码内**程序化构造**并逐字段断言（AXML + arsc 均是）；畸形 chunk / 越界索引 / 非法 headerSize / 厂商变体布局注入测试；**真实样本佐证**（不以程序化样本冒充真实格式兼容）：base.apk / tvshell-debug.apk 的空 `resources.arsc`（40 字节内嵌 + SHA-256）、受控构建 fx-multidex 的非平凡 `resources.arsc`（1052 字节，aapt2 黄金逐条交叉核对）、framework-res（1.76MB，Apache-2.0）临时整表解析 + aapt2 关键条目交叉核对后删除（类型池真实字节 488B 永久内嵌白盒）。
+- **已实测验收**：`moon test` 87/87（WP-1 新增 23：arsc 黑盒 17 + arsc 白盒 6；基线 55）；`moon clean` / `moon check --deny-warn` / `moon build` / `moon fmt --check` 全 exit 0。
+- **待补做**：AXML 侧与 `aapt2 dump xmltree` 逐字段差分（依赖真实 APK 资产授权）；arsc qualifier 最优匹配与动态引用改写（D1 降级项）。
 
 ## 当前状态 / 本轮产物
 
 | 项 | 状态 |
 |---|---|
 | `axml.mbt` / `decode.mbt` 类型、错误模型与解析实现 | ✅ 真实实现（无 `declare` 存根、无 `0068` 告警） |
-| `pkg.generated.mbti` API 快照 | ✅ 现状有效；`moon info` 再生成由主控统一执行（子代理不运行、不改写） |
+| `arsc.mbt` / `arsc_decode.mbt`（WP-1 resources.arsc 解析链） | ✅ 真实实现（chunk 全形态 + 查询 + 属性引用解析；降级项见 API.md） |
+| `pkg.generated.mbti` API 快照 | ✅ `moon info` 已再生成（纯加法性 +153 行 / -0 行） |
 | `DocumentView` trait | ✅ R2 已删除（`elements` 无 `raise` 与 `AxmlDoc::elements raise AxmlError` 不兼容，且全仓无实现者/消费者） |
 | 厂商变体处理 | ✅ `attributeStart`/`attributeSize > 20` 按步长跳过，`< 20` 报 `VendorVariant` |
-| `res0` / `data` 语义解释 | ❌ 保留原值，代码内 `TODO` 标注 |
-| 门禁 | ✅ `moon check --deny-warn` · `moon build` · `moon test` 40/40 · `moon fmt --check` |
+| `res0` / `data` 语义解释（AXML 侧） | ❌ 保留原值，代码内 `TODO` 标注 |
+| 门禁 | ✅ `moon clean` · `moon check --deny-warn` · `moon build` · `moon test` 87/87 · `moon fmt --check` 全 exit 0 |
 
 ## 文档索引
 

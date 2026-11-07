@@ -1,5 +1,13 @@
-// import {
-//   "hnlyxiaobing/axml" @lib,
-// }
+import {
+  "hnlyxiaobing/axml",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/compress/flate",
+  "moonbitlang/core/env",
+}
 
 pkgtype(kind: "executable")
+
+options(
+  "allow-experimental-packages": true,
+)

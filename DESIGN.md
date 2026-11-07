@@ -4,7 +4,9 @@
 
 ## 1. 分层位置与职责
 
-L1 逆向输入层，纯 MoonBit 叶子库。唯一职责：**AXML 字节流 → 文档树**。输入不含 ZIP 封装，输出不含 manifest 语义。
+L1 逆向输入层，纯 MoonBit 叶子库。职责：**AXML 字节流 → 文档树** 与
+**resources.arsc 字节流 → 资源表**（WP-1 加法性新增，见 §14）。输入不含 ZIP
+封装，输出不含 manifest 语义。
 
 ## 2. 模块边界 / 依赖方向 / 数据流
 
@@ -69,7 +71,7 @@ L1 逆向输入层，纯 MoonBit 叶子库。唯一职责：**AXML 字节流 →
 | 黑盒 (`_test.mbt`) | UTF-8 / UTF-16 黄金样本（在测试代码内程序化构造，不依赖工作区外资产）；`elements()` / `string_at()` 逐字段断言；与 `aapt2 dump xmltree` 的差分待真实 APK 资产就绪（Q1）后补做 |
 | 白盒 (`_wbtest.mbt`) | Little-endian 读取器截断偏移、UTF-8/UTF-16 解码边界、字符串池 `headerSize`/`stringsStart`/`stylesStart` 校验、`value_type_of` 映射 |
 | 畸形输入 | 截断 chunk、非法 magic、非法字符串索引、未知 chunk 类型 |
-| 门禁 | `moon fmt --check` / `moon check --deny-warn` / `moon build` / `moon test`（`moon info` 快照再生成由主控统一执行） |
+| 门禁 | `moon fmt --check` / `moon check --deny-warn` / `moon build` / `moon test` / `moon clean`（本轮 WP-1 全部实测 exit 0） |
 
 ## 11. 验收标准（R2 冻结前实测状态）
 
@@ -85,11 +87,69 @@ L1 逆向输入层，纯 MoonBit 叶子库。唯一职责：**AXML 字节流 →
 
 ## 13. 当前状态与 TODO
 
-`axml.mbt` / `decode.mbt` 含全部公开类型与 5 个导出函数的**真实实现**，每条公开 API 有 `///` 文档注释并标注参数所有权、错误、线程与非目标。R1 之后的实现轮已完成：40 个用例（26 黑盒 + 14 白盒）全过，`moon check --deny-warn` 0 error / 0 warning。
+`axml.mbt` / `decode.mbt` 含全部公开类型与 5 个导出函数的**真实实现**；WP-1 新增
+`arsc.mbt` / `arsc_decode.mbt`（resources.arsc 解析链，10 个导出函数 + 16 个类型，
+见 §14 与 API.md）。每条公开 API 有 `///` 文档注释。当前 `moon test` 87/87
+（axml 黑盒 26 + axml 白盒 14 + arsc 黑盒 17 + arsc 白盒 6 + fixtures 系列计入 24；
+其中 WP-1 新增 23 个 arsc 用例），`moon check --deny-warn` 0 error / 0 warning。
 
-- **R2 冻结前 P0 整改**：删除 `DocumentView` trait（`elements` 无 `raise` 与 `AxmlDoc::elements raise AxmlError` 不兼容，且全仓无实现者/消费者）；`API.md` / `DESIGN.md` / `README*` 与 `pkg.generated.mbti` 快照逐项对账修正。
-- **剩余 TODO**：`res0` / `data` 的语义解释（代码内 `TODO` 标注，当前按 API.md 保留原值）；真实 APK 与 `aapt2` 差分验收（依赖 Q1 资产）。
+- **R2 冻结前 P0 整改**：删除 `DocumentView` trait（已完成）；API/设计/README 与快照对账（已完成）。
+- **剩余 TODO**：`res0` / `data` 的语义解释（AXML 侧代码内 `TODO` 标注，按 API.md 保留原值）；`?attr` 主题求值与 qualifier 最优匹配（D1 降级项，见 §14）。
+
+## 14. resources.arsc 解析链（WP-1 加法性新增，D1 范围）
+
+### 14.1 格式覆盖（AOSP ResourceTypes.h / LoadedArsc.cpp 逐项复刻）
+
+| 结构 | 处理 |
+|---|---|
+| `ResTable_header`（RES_TABLE_TYPE 0x0002） | headerSize==12 校验；`size` 短于输入报尾随垃圾、长于输入报截断 |
+| 全局字符串池 | 复用 AXML 侧严格解析器（UTF-8/UTF-16 双编码）；缺失报 `BadPool` |
+| `ResTable_package` | headerSize 284（旧）/288（新，含 typeIdOffset）；包名 UTF-16Z；typeStrings/keyStrings 偏移定位类型池/键名池 |
+| `ResTable_typeSpec` | id/entryCount/逐条目 config 掩码（SPEC_PUBLIC）；同 id 重复取首个（AOSP 同） |
+| `ResTable_type` | entryCount/entriesStart/`ResTable_config`（28~64 字节版本，常用 qualifier 逐字段解码）；dense u32 / FLAG_OFFSET16(u16, 值×4, 0xFFFF=NO_ENTRY) / FLAG_SPARSE(ResTable_sparseTypeEntry{idx,offset/4}，按 AOSP GetEntryOffset 语义) 三种 offsets 全支持 |
+| `ResTable_entry` | 简单（+Res_value）、复杂 bag（parent + count 个 ResTable_map）、compact（FLAG_COMPACT：key u16 + flags 高字节 dataType + data 内联，按 AOSP `ResTable_entry::value()`）|
+| `Res_value` | `TYPE_*` 全集 16 变体解码 + `Unknown` 保留；dimension/fraction complex 解码（mantissa/radix/unit） |
+| `RES_TABLE_LIBRARY_TYPE` | 解析为 `ResLibrary` 供展示；**不做动态引用改写** |
+| overlayable/policy/staged alias/未知 chunk | 按 headerSize/size 跳过（降级） |
+
+边界校验对齐 `LoadedArsc.cpp::VerifyResTableType/VerifyResTableEntry`：offsets 与
+entry data 不重叠、entriesStart 4 字节对齐、entry/value/map 边界逐项检查，违反即
+`BadTable/BadHeader/Eof` 带偏移报错，无 panic、无静默默认值。
+
+### 14.2 查询选择策略（文档化）
+
+`ResTable::lookup(id)`：**默认配置优先**——多配置命中时选 qualifier 全零
+（`ResConfig::is_default`）的配置；无默认配置时取 chunk 顺序首个命中。
+`lookup_all` 暴露全部配置命中供上层自行选择。**不做** aapt2 式
+locale/density/SDK 最优匹配（D1 降级，见 API.md 降级项 1）。
+
+### 14.3 属性引用解析（resolve_attr_value）
+
+输入 = 已解析 `AxmlDoc` + `ResTable` + `XmlAttribute`；输出 `ResolvedAttr{text, id, origin}`，
+`text` 即解析后的人类可读值（如 `@string/app_name` → `MyApp`）。解析顺序：
+typed Reference/Attribute 的 `raw_data` id（FromId）→ `raw_value` 文本形式
+`@type/name`/`@pkg:type/name`/`@0x…`（FromName/FromId）→ String 池字面量与
+typed 字面量（Literal）。全部缺口降级为 `Unresolved(原因)`，不抛错。
+
+### 14.4 真实样本佐证（SHA-256 见 arsc_test.mbt 文件头）
+
+| 样本 | 处理 | 交叉核对 |
+| --- | --- | --- |
+| base.apk / tvshell-debug.apk → resources.arsc（各 40 字节，空表） | 字节内嵌 arsc_test.mbt（FIXTURE 注释溯源） | `aapt2 dump resources` 仅 "Binary APK" 无 package ↔ 解析 package_count=0、全局池为空 |
+| fx-multidex-v2v3.apk → resources.arsc（1052 字节，受控构建） | WP-4 内嵌 fixture，本包测试解析 | aapt2 黄金（golden_fx_multidex_arsc）逐条：bool=true、color=#ff2255aa、string 默认/zh 双配置、名字反查 |
+| framework-res.apk → resources.arsc（1759752 字节，Apache-2.0） | **临时整表解析测试后删除**（任务约定）；类型池 488 字节 chunk 永久内嵌 arsc_wbtest.mbt | aapt2 dump resources 关键条目逐条一致（string/cancel zh 双配置、color、dimen 三配置、bool、integer、fraction、style bag parent+12 maps）；base.apk `theme=@0x0103012a` 端到端 → `@style/Theme.DeviceDefault.NoActionBar.Fullscreen` |
+
+### 14.5 测试（WP-1 新增 23 用例）
+
+- 黑盒 `arsc_test.mbt`（17）：程序化表覆盖 header/双编码池/typeSpec/type/entry
+  全形态（dense/offset16/sparse/compact/bag）/Res_value 全类型、id 查询、
+  find_id、resolve_id、resolve_attr_value 三形式与降级、畸形输入（截断/头部/
+  尾随垃圾/缺池/超额包/继承包/无前置 spec/entriesStart 未对齐/entry 越界）；
+  真实样本 4 项（两空表 + fx-multidex 交叉核对 + framework-res 清单衔接）。
+- 白盒 `arsc_wbtest.mbt`（6）：framework-res 类型池真实字节、AxmlError→ArscError
+  映射、locale 解包（ASCII/压缩 UN M.49）、ResTable_config 28/64 字节两版本、
+  `TYPE_*` 全映射、fixed6 渲染。
 
 ## References
 
-`../docs/research-and-verification.md` §2.1 · `../docs/adr/ADR-0001`、`ADR-0002`、`ADR-0003` · AOSP `ResourceTypes.h` · `https://apktool.org/`
+`../docs/research-and-verification.md` §2.1 · `../docs/adr/ADR-0001`、`ADR-0002`、`ADR-0003` · AOSP `ResourceTypes.h`、`LoadedArsc.cpp`（resources.arsc 语义基准：sparse/OFFSET16/compact/entry 边界校验） · `https://apktool.org/`

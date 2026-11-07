@@ -8,7 +8,22 @@ import {
 // Values
 pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 
+pub fn parse_arsc(Bytes) -> ResTable raise ArscError
+
+pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
+
 // Errors
+#derive(@debug.Debug)
+pub suberror ArscError {
+  Eof(Int32)
+  BadChunk(Int32, UInt32)
+  BadHeader(Int32, Int32)
+  BadPool(Int32, String)
+  BadIndex(Int32)
+  BadTable(Int32, String)
+}
+pub fn ArscError::to_repr(Self) -> @debug.Repr
+
 #derive(@debug.Debug)
 pub suberror AxmlError {
   UnexpectedEof(Int32)
@@ -42,6 +57,144 @@ pub(all) enum ChunkType {
   EndElement
   CData
   ResourceMap
+}
+
+pub(all) struct ResBag {
+  parent : UInt32
+  maps : Array[ResMap]
+}
+
+pub(all) struct ResConfig {
+  size : Int32
+  mcc : Int32
+  mnc : Int32
+  language : String
+  country : String
+  orientation : Int32
+  touchscreen : Int32
+  density : Int32
+  keyboard : Int32
+  navigation : Int32
+  input_flags : Int32
+  screen_width : Int32
+  screen_height : Int32
+  sdk_version : Int32
+  screen_layout : Int32
+  ui_mode : Int32
+  smallest_screen_width_dp : Int32
+  screen_width_dp : Int32
+  screen_height_dp : Int32
+  locale_script : String
+  color_mode : Int32
+  raw : Bytes
+}
+pub fn ResConfig::is_default(Self) -> Bool
+
+pub(all) enum ResDataType {
+  Null
+  Reference
+  Attribute
+  String
+  Float
+  Dimension
+  Fraction
+  DynamicReference
+  DynamicAttribute
+  IntDec
+  IntHex
+  IntBoolean
+  IntColorArgb8
+  IntColorRgb8
+  IntColorArgb4
+  IntColorRgb4
+  Unknown(Int32)
+}
+
+pub(all) struct ResEntry {
+  key : Int32
+  key_name : String
+  flags : Int32
+  value : ResEntryValue
+}
+
+pub(all) enum ResEntryValue {
+  Simple(ResValue)
+  Complex(ResBag)
+}
+
+pub(all) struct ResLibrary {
+  package_id : Int32
+  name : String
+}
+
+pub(all) struct ResLookup {
+  package_name : String
+  type_name : String
+  entry_name : String
+  type_id : Int32
+  entry_id : Int32
+  config : ResConfig
+  entry : ResEntry
+}
+
+pub(all) struct ResMap {
+  name : UInt32
+  value : ResValue
+}
+
+pub(all) struct ResPackage {
+  id : Int32
+  name : String
+  type_id_offset : Int32
+  type_pool : StringPool
+  key_pool : StringPool
+  types : Array[ResTypeSpec]
+  libraries : Array[ResLibrary]
+}
+
+pub(all) struct ResTable {
+  global_pool : StringPool
+  packages : Array[ResPackage]
+  package_count : Int32
+}
+pub fn ResTable::find_id(Self, String, String) -> UInt32?
+pub fn ResTable::format_value(Self, ResValue) -> String
+pub fn ResTable::lookup(Self, UInt32) -> ResLookup?
+pub fn ResTable::lookup_all(Self, UInt32) -> Array[ResLookup]
+pub fn ResTable::package_by_id(Self, Int32) -> ResPackage?
+pub fn ResTable::resolve_id(Self, UInt32) -> String
+
+pub(all) struct ResTypeConfig {
+  id : Int32
+  flags : Int32
+  config : ResConfig
+  entries : Array[ResEntry?]
+}
+
+pub(all) struct ResTypeSpec {
+  id : Int32
+  types_count : Int32
+  entry_count : Int32
+  spec_flags : Array[UInt32]
+  configs : Array[ResTypeConfig]
+}
+
+pub(all) struct ResValue {
+  data_type : ResDataType
+  data : UInt32
+}
+
+pub(all) enum ResolveOrigin {
+  Literal
+  FromId
+  FromName
+  Unresolved(String)
+}
+
+pub(all) struct ResolvedAttr {
+  text : String
+  id : UInt32?
+  origin : ResolveOrigin
 }
 
 pub(all) enum StringEncoding {

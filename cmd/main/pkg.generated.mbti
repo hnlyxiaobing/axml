@@ -6,6 +6,11 @@ package "hnlyxiaobing/axml/cmd/main"
 // Errors
 
 // Types and methods
+type RefCtx
+
+type SemInfo
+
+type ZEntry
 
 // Type aliases
 

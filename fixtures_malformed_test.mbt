@@ -210,3 +210,27 @@ test "axml malformed: 未知 chunk 被跳过且不影响已有结构" {
 test "axml malformed: checksum 污染 [SKIPPED: AXML 无 checksum 字段]" {
   println("SKIPPED: AXML 无 checksum 字段，等价用例见 dex 链")
 }
+
+///|
+/// 程序化 **arsc** 边角样本（WP-4 2026-11-07，**非真实格式兼容证据**）：
+/// 与 axml/tests/fixtures/edge-arsc-{truncated,badheadersize,badtype}.bin 同字节
+/// （派生命令见 fixtures/golden/ASSETS.md §8）。对当前 `@axml.parse` 的实测行为：
+/// 全部报 `AxmlError`（RES_TABLE 外层 chunk 非 RES_XML）且不 panic；
+/// 这些派生样本同时是 WP-1 resources.arsc 解析器的边角夹具
+///（截断 / headerSize 污染 / 未知 chunk 类型）。
+test "axml malformed: 程序化 arsc 边角样本被拒且不 panic" {
+  let fx = fixture_fx_multidex_arsc()
+  let tv = fixture_tvshell_arsc()
+  // edge-arsc-truncated.bin：fx arsc 截断到 20 字节
+  assert_true(fx_raises(fx_cut(fx, 20)), msg="截断 arsc 应报 AxmlError")
+  // edge-arsc-badheadersize.bin：空表 arsc 外层 headerSize 12 -> 8
+  assert_true(
+    fx_raises(fx_mut(tv, 2, b'\x08')),
+    msg="headerSize 污染应报 AxmlError",
+  )
+  // edge-arsc-badtype.bin：外层 chunk type 0x0002 -> 0x0007（未知类型）
+  assert_true(
+    fx_raises(fx_mut(fx, 0, b'\x07')),
+    msg="未知 chunk 类型应报 AxmlError",
+  )
+}
