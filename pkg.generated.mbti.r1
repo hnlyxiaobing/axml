@@ -1,0 +1,102 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hnlyxiaobing/axml"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn parse(Bytes) -> AxmlDoc raise AxmlError
+
+// Errors
+#derive(@debug.Debug)
+pub suberror AxmlError {
+  UnexpectedEof(Int32)
+  BadChunkType(Int32, UInt32)
+  BadHeaderSize(Int32, Int32)
+  BadStringPool(Int32, String)
+  InvalidStringIndex(Int32)
+  InvalidNodeIndex(Int32)
+  UnsupportedEncoding(String)
+  VendorVariant(String)
+}
+pub fn AxmlError::to_repr(Self) -> @debug.Repr
+
+// Types and methods
+pub(all) struct AxmlDoc {
+  pool : StringPool
+  nodes : Array[XmlNode]
+  roots : Array[Int32]
+  resource_map : Array[UInt32]
+}
+pub fn AxmlDoc::elements(Self) -> Array[XmlNode] raise AxmlError
+pub fn AxmlDoc::node_at(Self, Int32) -> XmlNode raise AxmlError
+pub fn AxmlDoc::string_at(Self, Int32) -> String raise AxmlError
+
+pub(all) enum ChunkType {
+  StringPool
+  XmlTree
+  StartNamespace
+  EndNamespace
+  StartElement
+  EndElement
+  CData
+  ResourceMap
+}
+
+pub(all) enum StringEncoding {
+  Utf8
+  Utf16
+}
+
+pub(all) struct StringPool {
+  encoding : StringEncoding
+  strings : Array[String]
+  styles : Bytes
+}
+
+pub(all) enum ValueType {
+  Null
+  Reference
+  Attribute
+  String
+  Float
+  Dimension
+  Fraction
+  IntDec
+  IntHex
+  IntBoolean
+  Unknown(Int32)
+}
+
+pub(all) struct XmlAttribute {
+  ns : String?
+  name : String
+  raw_value : String?
+  value_type : ValueType
+  res0 : Byte
+  raw_data : UInt32
+  line : Int32
+}
+
+pub(all) struct XmlNode {
+  line : Int32
+  ns : String?
+  name : String
+  attributes : Array[XmlAttribute]
+  children : Array[Int32]
+  parent : Int32?
+  chunk : ChunkType
+}
+pub fn XmlNode::attrs(Self) -> Array[XmlAttribute]
+
+// Type aliases
+pub type NodeIndex = Int32
+
+pub type StringIndex = Int32
+
+// Traits
+pub trait DocumentView {
+  fn elements(Self) -> Array[XmlNode]
+  fn string_at(Self, Int32) -> String raise AxmlError
+}
