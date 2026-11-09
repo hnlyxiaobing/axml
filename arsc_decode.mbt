@@ -249,7 +249,7 @@ fn parse_package(
     } else if child_type == 0x0203 {
       parse_library(data, p, child_size, child_header_size, libraries)
     } else {
-      // 0x0204/0x0205/0x0206 及未知 chunk：跳过（降级项，见 API.md）。
+      // 0x0204/0x0205/0x0206 及未知 chunk：跳过（降级项，见 docs/API.md）。
       ()
     }
     p = p + child_size
@@ -664,7 +664,7 @@ fn ascii4(data : Bytes, off : Int32, limit : Int32) -> String raise ArscError {
 
 ///|
 /// 解析 `RES_TABLE_LIBRARY_TYPE` 动态包映射（packageId:u32 + name:u16[128]）。
-/// 仅供展示；本库不改写动态引用（见 API.md 降级项）。
+/// 仅供展示；本库不改写动态引用（见 docs/API.md 降级项）。
 fn parse_library(
   data : Bytes,
   off : Int32,

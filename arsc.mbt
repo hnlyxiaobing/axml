@@ -46,7 +46,7 @@ pub extend ArscError with Debug::{to_repr}
 ///
 /// 语义标注：`DynamicReference` / `DynamicAttribute`（0x07/0x08）是需要经
 /// `RES_TABLE_LIBRARY_TYPE` 动态包映射改写后才能使用的引用；本库**不做改写**，
-/// 只按原样保留 id 并如实标注（见 API.md 降级项）。
+/// 只按原样保留 id 并如实标注（见 docs/API.md 降级项）。
 pub(all) enum ResDataType {
   Null
   Reference
@@ -111,7 +111,7 @@ pub(all) struct ResEntry {
 ///|
 /// 一个资源配置（AOSP `ResTable_config`）。
 /// 常用 qualifier 字段逐项解出；未覆盖字段完整保留在 `raw`（原始 config 字节）中，
-/// 按字段偏移解码，`size` 大于 36 时追加 localeScript 等扩展字段（降级见 API.md）。
+/// 按字段偏移解码，`size` 大于 36 时追加 localeScript 等扩展字段（降级见 docs/API.md）。
 pub(all) struct ResConfig {
   size : Int32
   mcc : Int32
@@ -230,7 +230,7 @@ pub(all) struct ResolvedAttr {
 ///   entry offsets（dense u32 / FLAG_OFFSET16 u16 / FLAG_SPARSE 二分表）与
 ///   entry 边界均按 AOSP `LoadedArsc.cpp` 校验；违反即报错，不 panic。
 /// - 降级：未知 chunk（如 overlayable/staged alias）按 headerSize/size 跳过；
-///   未知 `Res_value.dataType` 保留在 `Unknown`；动态引用不改写（见 API.md §降级）。
+///   未知 `Res_value.dataType` 保留在 `Unknown`；动态引用不改写（见 docs/API.md §降级）。
 pub fn parse_arsc(data : Bytes) -> ResTable raise ArscError {
   parse_table(data)
 }
@@ -278,7 +278,7 @@ pub fn ResConfig::is_default(self : ResConfig) -> Bool {
 /// 选择策略（文档化）：**默认配置优先**——同一 (包,类型,条目) 存在多个
 /// `ResTable_type` 配置变体时，返回 qualifier 全零（`ResConfig::is_default`）的
 /// 配置中的条目；无默认配置时返回 chunk 顺序中的第一个命中配置。
-/// **降级**：不做 aapt2 式 locale/density/SDK 的最优匹配（qualifier 选择属降级项，见 API.md）。
+/// **降级**：不做 aapt2 式 locale/density/SDK 的最优匹配（qualifier 选择属降级项，见 docs/API.md）。
 /// 未命中返回 `None`（包/类型/条目任一缺失均视为未命中，不报错）。
 pub fn ResTable::lookup(self : ResTable, id : UInt32) -> ResLookup? {
   let hits = self.collect_hits(id)
@@ -489,7 +489,7 @@ fn ResTable::resolve_id_depth(
 ///
 /// 任何缺口（id 不在表、名字未命中、字符串索引越界）都不抛错，返回
 /// `Unresolved(原因)` 并保留可读的原始文本。**不解析** `?attr/theme` 引用链
-/// （属性引用的语义解析属降级项，见 API.md）。
+/// （属性引用的语义解析属降级项，见 docs/API.md）。
 pub fn resolve_attr_value(
   doc : AxmlDoc,
   table : ResTable,

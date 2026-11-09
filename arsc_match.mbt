@@ -1,7 +1,7 @@
 ///|
 /// R4 加法性增强：aapt2 式配置最优匹配、bag 压平、`?attr` 主题求值。
 ///
-/// 边界（如实登记，见 API.md 降级项）：
+/// 边界（如实登记，见 docs/API.md 降级项）：
 /// - 配置匹配覆盖 AOSP `ResConfig::match` 的常用子集：mcc/mnc/locale/
 ///   screenLayout/smallestWidth/width/height(dp)/orientation/uiMode/colorMode/
 ///   density/touchscreen/keyboard/navigation/inputFlags/screen(px)/sdkVersion；

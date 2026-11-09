@@ -1,6 +1,6 @@
 # axml · 公开 API（API.md）
 
-> 与 `pkg.generated.mbti` 快照逐项对账（2026-11-07，resources.arsc 解析链为加法性新增）。全部函数均为**真实实现**，包内**没有 `declare` 存根**；`moon check --deny-warn` 0 error / 0 warning。
+> 与 `../pkg.generated.mbti` 快照逐项对账（2026-11-07，resources.arsc 解析链为加法性新增）。全部函数均为**真实实现**，包内**没有 `declare` 存根**；`moon check --deny-warn` 0 error / 0 warning。
 > 错误传播：AXML 侧统一 `raise AxmlError`，resources.arsc 侧统一 `raise ArscError`；无外部句柄、无释放函数（本库不存在 close/detach 语义）。
 > 本包**不导出任何 trait**：`DocumentView` 已删除——其 `elements(Self) -> Array[XmlNode]` 无 `raise`，与 `AxmlDoc::elements` 的 `raise AxmlError` 不兼容，且全仓无实现者、无消费者。`AxmlDoc::elements` / `AxmlDoc::string_at` 保留为具体方法（见下表）。
 
@@ -34,7 +34,7 @@
 
 `UnexpectedEof(Int32)` · `BadChunkType(Int32, UInt32)` · `BadHeaderSize(Int32, Int32)` · `BadStringPool(Int32, String)` · `InvalidStringIndex(Int32)` · `InvalidNodeIndex(Int32)` · `UnsupportedEncoding(String)` · `VendorVariant(String)`
 
-（与 `pkg.generated.mbti` 的 `AxmlError` 块逐项一致，共 8 个变体；`AxmlError` 可见性维持 `pub suberror` 现状，不放宽。）
+（与 `../pkg.generated.mbti` 的 `AxmlError` 块逐项一致，共 8 个变体；`AxmlError` 可见性维持 `pub suberror` 现状，不放宽。）
 
 ## 非目标（明确不在 API 内）
 
@@ -131,6 +131,6 @@ qualifier 最优匹配、overlay（RRO/idmap）语义、继承包、bag 压平�
 | `moon test` | ✅ exit 0，90/90（AXML 黑盒 26 + AXML 白盒 14 + arsc 黑盒 17 + arsc 白盒 6 + 真实样本黄金/畸形系列 27） |
 | `moon fmt --check` | ✅ exit 0 |
 
-API 快照：`pkg.generated.mbti`（`moon info` 再生成：**+153 行 / -0 行**，纯加法性，
-AXML 侧冻结签名逐字未动）。实现：`arsc.mbt`（类型/查询/解析/渲染）+ `arsc_decode.mbt`
+API 快照：`../pkg.generated.mbti`（`moon info` 再生成：**+153 行 / -0 行**，纯加法性，
+AXML 侧冻结签名逐字未动）。实现：`../arsc.mbt`（类型/查询/解析/渲染）+ `../arsc_decode.mbt`
 （chunk 级解码，不导出），全部真实实现、无 `declare` 存根。

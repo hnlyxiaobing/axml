@@ -121,11 +121,11 @@ pub type NodeIndex = Int32
 ///   字节偏移。偏移语义：`UnexpectedEof(offset)` 指被截断项的起始偏移；
 ///   `BadChunkType` / `BadHeaderSize` 的 offset 指 chunk 起始（外层头部为 0）。
 /// - 线程：无可变全局状态，可并发调用；返回值为只读，可跨线程共享。
-/// - 降级策略（DESIGN.md §7）：未知 chunk 类型按 headerSize/size 跳过；
+/// - 降级策略（docs/DESIGN.md §7）：未知 chunk 类型按 headerSize/size 跳过；
 ///   厂商变体布局（attributeStart/attributeSize < 20）以 `VendorVariant` 报告；
 ///   未知字符串池标志位以 `UnsupportedEncoding` 报告。
 /// - 非目标：不解析资源引用、不提供 manifest 语义、不回编、不处理 resources.arsc。
-/// - TODO：`res0`/`data` 的语义解释（当前按 API.md 保留原值，语义确定后再实现）。
+/// - TODO：`res0`/`data` 的语义解释（当前按 docs/API.md 保留原值，语义确定后再实现）。
 pub fn parse(data : Bytes) -> AxmlDoc raise AxmlError {
   let limit = data.length()
   let doc_type = read_u16(data, 0, limit)
@@ -194,7 +194,7 @@ pub fn parse(data : Bytes) -> AxmlDoc raise AxmlError {
         parse_cdata(data, off, chunk_size, pool, nodes, roots, stack)
       } else {
         // 0x0100 / 0x0101：命名空间声明仅校验字符串引用后跳过
-        // （API.md 非目标：不做命名空间解析）。
+        // （docs/API.md 非目标：不做命名空间解析）。
         let chunk_end = off + chunk_size
         ignore(string_opt(pool, read_u32(data, off + 16, chunk_end)))
         ignore(string_opt(pool, read_u32(data, off + 20, chunk_end)))

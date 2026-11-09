@@ -15,16 +15,16 @@
 - 本库的上界是「一个库只解析一种格式」：AXML 与其同层资源表属于同一格式家族（同一套 ResChunk / 字符串池 / Res_value 结构）。
 
 **后果**：
-- `axml` 公开 API 呈**加法性**扩张（`pkg.generated.mbti` 快照纯新增 +153 行 / -0 行，AXML 侧签名逐字未动）。
+- `axml` 公开 API 呈**加法性**扩张（`../pkg.generated.mbti` 快照纯新增 +153 行 / -0 行，AXML 侧签名逐字未动）。
 - `apk` / `dex` 的公开签名不受影响；`apk` 依旧不返回任何下游类型。
 - 降级边界（qualifier 最优匹配、动态引用改写等刻意不做的项）记录于 `API.md` 降级项清单。
 
 ## D2 · 零跨模块 import；`apk` 只给出 `ManifestRef.raw : Bytes`，由组合根调用本库
 
-**背景**：本库与 `apk` / `dex` 等是各自独立的 MoonBit 模块（各自 `moon.mod`），MoonBit 是名义类型系统——两个模块里结构完全相同的 struct 也不是同一类型。若让 `apk` 内部调用 `axml` 并返回 `AxmlDoc`，会把下游格式类型泄漏给容器层使用者、使 `apk` 成为中心节点并产生循环依赖风险，且下游解析库一变 `apk` 的 API 就被迫跟着变。
+**背景**：本库与 `apk` / `dex` 等是各自独立的 MoonBit 模块（各自 `../moon.mod`），MoonBit 是名义类型系统——两个模块里结构完全相同的 struct 也不是同一类型。若让 `apk` 内部调用 `axml` 并返回 `AxmlDoc`，会把下游格式类型泄漏给容器层使用者、使 `apk` 成为中心节点并产生循环依赖风险，且下游解析库一变 `apk` 的 API 就被迫跟着变。
 
 **决策**：
-1. 各模块**零跨模块 import**，`moon.pkg` 无显式依赖，可独立 `moon check`；本库 `moon.mod` 独立、零第三方依赖。
+1. 各模块**零跨模块 import**，`../moon.pkg` 无显式依赖，可独立 `moon check`；本库 `../moon.mod` 独立、零第三方依赖。
 2. 跨模块传递只用中性纯值（如 `Bytes`）：`apk::manifest()` 只返回 `ManifestRef { entry_name, raw : Bytes }`，**不返回 `AxmlDoc`**；由**组合根**（使用方工程里的适配代码，不是库）把 `raw` 交给 `axml::parse`，并把错误映射为上层诊断。
 3. 错误不跨模块传播：本库统一 `raise AxmlError` / `raise ArscError`，由组合根决定如何上抛或降级。
 
@@ -40,11 +40,11 @@
 
 **背景**：需要 Java classfile 二进制布局（结构表 + 边界校验）的写法参照，mooncakes 上存在现成包 `iceBear67/classfile@0.2.0`。
 
-**决策**：该包**只作设计参照**（借鉴其结构组织与校验写法），**不引入为依赖**；本库维持零第三方依赖（`moon.pkg` 无显式 import）。
+**决策**：该包**只作设计参照**（借鉴其结构组织与校验写法），**不引入为依赖**；本库维持零第三方依赖（`../moon.pkg` 无显式 import）。
 
 **理由**：
 - 该包 `build_status = legacy`，仍带 `moon.pkg.json`；现行 moon 工具链不再接受 JSON manifest 的包，直接依赖会失败。
 - 引入任何第三方包都会带来网络 / 版本 / 许可耦合，破坏「独立 `moon check`」的性质；本库解析 AXML / resources.arsc 并不需要它。
 - 依赖政策（若未来引入）：新增依赖必须同时通过用途、许可、维护、平台、风险五条门槛并留痕（源自开发期决策记录 ADR-0010）。
 
-**后果**：`moon.mod` 无依赖、`moon.pkg` 无显式 import；`pkg.generated.mbti` 中出现的 `moonbitlang/core/debug` 仅来自 `AxmlError` 的 `#derive(Debug)`。
+**后果**：`../moon.mod` 无依赖、`../moon.pkg` 无显式 import；`../pkg.generated.mbti` 中出现的 `moonbitlang/core/debug` 仅来自 `AxmlError` 的 `#derive(Debug)`。

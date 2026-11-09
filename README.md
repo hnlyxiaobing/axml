@@ -8,7 +8,7 @@
 
 选型实测（2026-11-06 复查 mooncakes.io）：`axml` / `arsc` / `dalvik` / `smali` 均无可用包，`dex` 唯一命中是生物序列误报。AXML 是 `AndroidManifest.xml` 在 APK 内的二进制形态，缺了它就无法在 MoonBit 侧读取任何 APK 清单。规范来自 AOSP `frameworks/base/include/androidfw/ResourceTypes.h`（Apache-2.0），公开且稳定，因此判定为**纯 MoonBit 自研**。
 
-本库是 `apk` 的下游（但**不被引擎 import**）、APK 审计工具与 CI manifest 检查的共用底座。按 `DECISIONS.md` 的模块边界决策（D2），`apk` 只产出 `ManifestRef.raw : Bytes`，由**组合根**调用本库。
+本库是 `apk` 的下游（但**不被引擎 import**）、APK 审计工具与 CI manifest 检查的共用底座。按 `docs/DECISIONS.md` 的模块边界决策（D2），`apk` 只产出 `ManifestRef.raw : Bytes`，由**组合根**调用本库。
 
 ## 能力范围 / 非目标
 
@@ -18,12 +18,12 @@
 
 ## 公开接口（速览）
 
-AXML 侧：`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`。resources.arsc 侧（加法性新增）：`parse_arsc(Bytes) -> ResTable raise ArscError`、`ResTable::{lookup, lookup_all, find_id, package_by_id, format_value, resolve_id}`、`ResConfig::is_default`、`resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr`。全部为具体方法，本包**不导出任何 trait**。完整签名与语义见 `API.md`。
+AXML 侧：`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, string_at, node_at}`、`XmlNode::attrs`。resources.arsc 侧（加法性新增）：`parse_arsc(Bytes) -> ResTable raise ArscError`、`ResTable::{lookup, lookup_all, find_id, package_by_id, format_value, resolve_id}`、`ResConfig::is_default`、`resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr`。全部为具体方法，本包**不导出任何 trait**。完整签名与语义见 `docs/API.md`。
 
 ## 依赖
 
 - **零依赖**：独立 `moon.mod`，`moon.pkg` 无显式 import（零跨模块依赖），`moon check` 独立通过；`pkg.generated.mbti` 中的 `moonbitlang/core/debug` 仅来自 `AxmlError` 的 `#derive(Debug)`。
-- 无第三方依赖计划；`iceBear67/classfile@0.2.0` 仅作**设计参照**（该包 `build_status=legacy`、仍带 `moon.pkg.json`，现行工具链不接受 JSON manifest、不可直接依赖；决策见 `DECISIONS.md` D4）。
+- 无第三方依赖计划；`iceBear67/classfile@0.2.0` 仅作**设计参照**（该包 `build_status=legacy`、仍带 `moon.pkg.json`，现行工具链不接受 JSON manifest、不可直接依赖；决策见 `docs/DECISIONS.md` D4）。
 
 ## 平台与许可风险
 
@@ -52,4 +52,4 @@ AXML 侧：`parse(Bytes) -> AxmlDoc raise AxmlError`、`AxmlDoc::{elements, stri
 
 ## 文档索引
 
-`DESIGN.md`（设计契约）· `API.md`（签名清单）· `DECISIONS.md`（设计决策记录）· `tests/ASSETS.md`（测试样本登记与黄金口径）
+`docs/DESIGN.md`（设计契约）· `docs/API.md`（签名清单）· `docs/DECISIONS.md`（设计决策记录）· `tests/ASSETS.md`（测试样本登记与黄金口径）
