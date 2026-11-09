@@ -22,6 +22,19 @@ pub suberror ArscError {
   BadPool(Int32, String)
   BadIndex(Int32)
   BadTable(Int32, String)
+  // —— R4 加法性新增（qualifier 匹配 / bag 压平 / ?attr 主题求值的错误路径）——
+  /// 限定符文本非法或不在支持子集内（`parse_qualifiers`）。
+  BadQualifier(String)
+  /// bag 压平目标不存在或是简单值（`ResTable::flatten_bag`）。
+  BagNotComplex(UInt32)
+  /// bag parent 引用的资源不存在或不是复杂条目（`ResTable::flatten_bag`）。
+  BagMissingParent(UInt32)
+  /// bag parent 继承链出现环（`ResTable::flatten_bag`）。
+  BagCycle(UInt32)
+  /// theme 中不存在该 attr（`ResTable::eval_theme_attr`）。
+  AttrMissing(UInt32)
+  /// `?attr` 引用链出现环（`ResTable::eval_theme_attr`）。
+  AttrCycle(UInt32)
 }
 
 ///|

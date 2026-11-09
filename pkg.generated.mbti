@@ -21,6 +21,12 @@ pub suberror ArscError {
   BadPool(Int32, String)
   BadIndex(Int32)
   BadTable(Int32, String)
+  BadQualifier(String)
+  BagNotComplex(UInt32)
+  BagMissingParent(UInt32)
+  BagCycle(UInt32)
+  AttrMissing(UInt32)
+  AttrCycle(UInt32)
 }
 pub fn ArscError::to_repr(Self) -> @debug.Repr
 
@@ -59,6 +65,11 @@ pub(all) enum ChunkType {
   ResourceMap
 }
 
+pub(all) struct FlattenedBag {
+  id : UInt32
+  attrs : Array[ResMap]
+}
+
 pub(all) struct ResBag {
   parent : UInt32
   maps : Array[ResMap]
@@ -88,7 +99,10 @@ pub(all) struct ResConfig {
   color_mode : Int32
   raw : Bytes
 }
+pub fn ResConfig::from_qualifiers(String) -> Self raise ArscError
+pub fn ResConfig::is_better_than(Self, Self, Self) -> Bool
 pub fn ResConfig::is_default(Self) -> Bool
+pub fn ResConfig::matches(Self, Self) -> Bool
 
 pub(all) enum ResDataType {
   Null
@@ -157,10 +171,13 @@ pub(all) struct ResTable {
   packages : Array[ResPackage]
   package_count : Int32
 }
+pub fn ResTable::eval_theme_attr(Self, UInt32, UInt32, ResConfig) -> ResValue raise ArscError
 pub fn ResTable::find_id(Self, String, String) -> UInt32?
+pub fn ResTable::flatten_bag(Self, UInt32, ResConfig) -> FlattenedBag raise ArscError
 pub fn ResTable::format_value(Self, ResValue) -> String
 pub fn ResTable::lookup(Self, UInt32) -> ResLookup?
 pub fn ResTable::lookup_all(Self, UInt32) -> Array[ResLookup]
+pub fn ResTable::lookup_with(Self, UInt32, ResConfig) -> ResLookup?
 pub fn ResTable::package_by_id(Self, Int32) -> ResPackage?
 pub fn ResTable::resolve_id(Self, UInt32) -> String
 
