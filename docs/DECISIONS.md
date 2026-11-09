@@ -1,7 +1,7 @@
 # axml · 设计决策记录（DECISIONS.md）
 
 > 本文件记录影响本仓库结构与 API 形态的设计决策（背景 → 决策 → 理由 → 后果），自足可读。
-> 部分决策源自开发期决策记录 ADR-0001 / ADR-0002 / ADR-0003 / ADR-0010（开发期文档，不随本仓库分发）；此处保留结论与理由全文，读者无需访问本仓库之外的任何文件。
+> 本文件保留全部决策的结论与理由全文，读者仅凭本仓库即可理解，无需访问仓库外任何文件。
 
 ## D1 · `resources.arsc` 解析器归属 `axml`（而非 `apk` 容器层）
 
@@ -34,7 +34,7 @@
 
 ## D3 · 具体数据结构用真实类型定义，不用 `declare` 声明 struct
 
-一句话：`declare` 在 moonc 中只支持函数签名与抽象类型，不能声明 struct/enum（`declare cannot be followed by struct/enum/trait/suberror/type alias`），且具体类型只有类型形状、不含业务逻辑，因此本包的具体数据结构（struct / enum / type alias / suberror）一律用**真实类型定义**、函数体全部真实实现（不留 `declare` 存根，源自开发期决策记录 ADR-0001）。
+一句话：`declare` 在 moonc 中只支持函数签名与抽象类型，不能声明 struct/enum（`declare cannot be followed by struct/enum/trait/suberror/type alias`），且具体类型只有类型形状、不含业务逻辑，因此本包的具体数据结构（struct / enum / type alias / suberror）一律用**真实类型定义**、函数体全部真实实现（不留 `declare` 存根，本仓库设计决策：本仓库类型声明策略）。
 
 ## D4 · `iceBear67/classfile@0.2.0` 只作设计参照，不作依赖
 
@@ -45,6 +45,6 @@
 **理由**：
 - 该包 `build_status = legacy`，仍带 `moon.pkg.json`；现行 moon 工具链不再接受 JSON manifest 的包，直接依赖会失败。
 - 引入任何第三方包都会带来网络 / 版本 / 许可耦合，破坏「独立 `moon check`」的性质；本库解析 AXML / resources.arsc 并不需要它。
-- 依赖政策（若未来引入）：新增依赖必须同时通过用途、许可、维护、平台、风险五条门槛并留痕（源自开发期决策记录 ADR-0010）。
+- 依赖政策（若未来引入）：新增依赖必须同时通过用途、许可、维护、平台、风险五条门槛并留痕。
 
 **后果**：`../moon.mod` 无依赖、`../moon.pkg` 无显式 import；`../pkg.generated.mbti` 中出现的 `moonbitlang/core/debug` 仅来自 `AxmlError` 的 `#derive(Debug)`。
