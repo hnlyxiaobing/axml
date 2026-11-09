@@ -1,4 +1,4 @@
-// Whitebox tests for the resources.arsc internal decoder (WP-1).
+// Whitebox tests for the resources.arsc internal decoder.
 // 包内可见：字符串池/配置/locale 解包等内部实现逐项断言。
 //
 // 真实样本（永久内嵌，逐字节来自 framework-res.apk -> resources.arsc 的类型池

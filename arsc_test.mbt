@@ -1,13 +1,14 @@
-// Blackbox tests for the resources.arsc parser (WP-1). Run `moon test` to execute.
+// Blackbox tests for the resources.arsc parser. Run `moon test` to execute.
 //
 // 样本策略（与 axml_test.mbt / fixtures_test.mbt 同口径，不冒充真实格式兼容）：
-// 1) 真实样本（内嵌字面量，来源与 SHA-256 见各 FIXTURE 注释；提取路径
-//    $env:TEMP\arsc_wp1\*.resources.arsc，禁止落盘 tests/fixtures/）：
+// 1) 真实样本（内嵌字面量，来源与 SHA-256 见文件头注释；同字节样本亦入库
+//    tests/fixtures/，登记见 tests/ASSETS.md）：
 //    - base.apk / tvshell-debug.apk 的 resources.arsc（各 40 字节，空资源表）。
 //      aapt2 交叉核对：`aapt2 dump resources <apk>` 仅输出 "Binary APK" 无任何
 //      package/type/resource 行，与本库解析出的 package_count=0、全局池为空一致。
-//    - framework-res.apk 的 resources.arsc（1759752 字节）过大不内嵌，按任务约定
-//      以临时测试整表解析 + aapt2 dump resources 交叉核对后删除（证据见交付报告）。
+//    - framework-res.apk 的 resources.arsc（1759752 字节）过大不内嵌：开发期以
+//      临时整表解析 + aapt2 dump resources 关键条目交叉核对后删除（结论见
+//      tests/ASSETS.md §3）；其类型池 chunk（488 字节）永久内嵌于 arsc_wbtest.mbt。
 // 2) 覆盖 header/字符串池/TypeSpec/Type/Entry/Res_value 的样本在测试代码中程序化
 //    构造（明确标注为程序化，不代表真实 APK 兼容结论）。
 //
@@ -21,8 +22,8 @@
 
 ///|
 /// 真实样本：base.apk -> resources.arsc（40 字节，RES_TABLE_TYPE + 空字符串池）。
-/// 来源 D:\MoonBit\motion_sensing_game\mvp\android\out\base.apk；
-/// 提取 $env:TEMP\arsc_wp1\base.resources.arsc（SHA-256 见文件头注释）。
+/// 来源：受控自建 base.apk 的 resources.arsc 条目（SHA-256 见文件头注释），
+/// 同字节样本入库 tests/fixtures/base.resources.arsc（见 tests/ASSETS.md）。
 // FIXTURE-BEGIN arsc/base.resources.arsc
 fn ar_fixture_base_arsc() -> Bytes {
   b"\x02\x00\x0c\x00\x28\x00\x00\x00\x00\x00\x00\x00\x01\x00\x1c\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x00"
@@ -31,8 +32,8 @@ fn ar_fixture_base_arsc() -> Bytes {
 
 ///|
 /// 真实样本：tvshell-debug.apk -> resources.arsc（40 字节，与 base 的空表字节相同）。
-/// 来源 D:\MoonBit\motion_sensing_game\tools\tvshell\tvshell-debug.apk；
-/// 提取 $env:TEMP\arsc_wp1\tvshell-debug.resources.arsc。
+/// 来源：受控自建 tvshell-debug.apk 的 resources.arsc 条目（SHA-256 见文件头注释），
+/// 同字节样本入库 tests/fixtures/tvshell-debug.resources.arsc（见 tests/ASSETS.md）。
 // FIXTURE-BEGIN arsc/tvshell-debug.resources.arsc
 fn ar_fixture_tvshell_arsc() -> Bytes {
   b"\x02\x00\x0c\x00\x28\x00\x00\x00\x00\x00\x00\x00\x01\x00\x1c\x00\x1c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x1c\x00\x00\x00\x00\x00\x00\x00"
@@ -899,7 +900,7 @@ test "arsc attr: 字面量与缺口降级" {
 
 ///|
 /// 真实样本交叉核对：受控构建样本 fx-multidex-v2v3.apk -> resources.arsc
-/// （1052 字节，fixture_fx_multidex_arsc() 由 WP-4 内嵌于 fixtures_test.mbt，
+/// （1052 字节，fixture_fx_multidex_arsc() 内嵌于 fixtures_test.mbt，
 /// 字节来自 tests/fixtures/fx-multidex.resources.arsc；aapt2 dump resources
 /// 黄金为 golden_fx_multidex_arsc()）。断言逐条对应黄金：
 /// bool/fx_flag 0x7f010000=true、color/fx_tint 0x7f020000=#ff2255aa、
@@ -961,9 +962,9 @@ test "arsc real: fx-multidex 受控构建样本交叉核对" {
 }
 
 ///|
-/// 真实样本衔接：framework-res.apk -> AndroidManifest.xml（WP-4 于
-/// fixtures_test.mbt 内嵌的 fixture_framework_res_manifest）。本用例消费该
-/// fixture 冒烟 @axml.parse（AXML 链），与 arsc 链共享真实样本证据链；
+/// 真实样本衔接：framework-res.apk -> AndroidManifest.xml（fixtures_test.mbt
+/// 内嵌的 fixture_framework_res_manifest）。本用例消费该
+/// fixture 冒烟 @axml.parse（AXML 链），与 resources.arsc 解析链共享真实样本证据链；
 /// 同时使该 fixture 在黑盒测试包内被引用（消除 unused 告警）。
 test "arsc real: framework-res 清单可解析" {
   let doc = @axml.parse(fixture_framework_res_manifest())

@@ -156,7 +156,7 @@ fn parse_table(data : Bytes) -> ResTable raise ArscError {
 ///
 /// AOSP 约束：headerSize >= 284（无 typeIdOffset 的旧包）或 288（新包）；
 /// typeStrings/keyStrings 为相对包头的偏移且必须指向字符串池；继承包
-/// （offsets 为 0）不在 D1 范围，报 `BadTable`。包内子 chunk：
+/// （offsets 为 0）不在支持范围，报 `BadTable`。包内子 chunk：
 /// 0x0202 typeSpec / 0x0201 type / 0x0203 library 解析，其余（0x0204 overlayable、
 /// 0x0205 policy、0x0206 staged alias 等）按大小跳过（降级项）。
 fn parse_package(

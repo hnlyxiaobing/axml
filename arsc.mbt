@@ -6,7 +6,7 @@
 /// `frameworks/base/libs/androidfw/include/androidfw/ResourceTypes.h` 与
 /// `LoadedArsc.cpp`（Apache-2.0）；sparse / OFFSET16 / compact entry 语义均按
 /// AOSP `LoadedPackage::GetEntryOffset` / `ResTable_entry::value()` 复刻。
-/// 加法性新增（R2 冻结基线不动：`AxmlError` 与 AXML 侧 API 均未改动）。
+/// 加法性新增（不改动 `AxmlError` 与 AXML 侧既有 API）。
 
 ///|
 /// resources.arsc 解析错误。
@@ -262,10 +262,10 @@ pub fn ResConfig::is_default(self : ResConfig) -> Bool {
 ///|
 /// 资源 id（0xPPTTNNNN）→ (package, type, name, 最优值) 查询。
 ///
-/// 选择策略（文档化，D1）：**默认配置优先**——同一 (包,类型,条目) 存在多个
+/// 选择策略（文档化）：**默认配置优先**——同一 (包,类型,条目) 存在多个
 /// `ResTable_type` 配置变体时，返回 qualifier 全零（`ResConfig::is_default`）的
 /// 配置中的条目；无默认配置时返回 chunk 顺序中的第一个命中配置。
-/// **降级**：不做 aapt2 式 locale/density/SDK 的最优匹配（qualifier 选择属 D1 降级项）。
+/// **降级**：不做 aapt2 式 locale/density/SDK 的最优匹配（qualifier 选择属降级项，见 API.md）。
 /// 未命中返回 `None`（包/类型/条目任一缺失均视为未命中，不报错）。
 pub fn ResTable::lookup(self : ResTable, id : UInt32) -> ResLookup? {
   let hits = self.collect_hits(id)
@@ -476,7 +476,7 @@ fn ResTable::resolve_id_depth(
 ///
 /// 任何缺口（id 不在表、名字未命中、字符串索引越界）都不抛错，返回
 /// `Unresolved(原因)` 并保留可读的原始文本。**不解析** `?attr/theme` 引用链
-/// （属性引用的语义解析属 D1 降级项，见 API.md）。
+/// （属性引用的语义解析属降级项，见 API.md）。
 pub fn resolve_attr_value(
   doc : AxmlDoc,
   table : ResTable,

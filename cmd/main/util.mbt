@@ -1,6 +1,6 @@
 ///|
-/// WP-3 CLI 公共辅助（axml-cli）：JSON 转义、hex/十进制渲染、属性值规范化、
-/// 资源引用解析接线点。仅使用 moonbitlang/core 与本模块公开 API。
+/// CLI 公共辅助（axml-cli）：JSON 转义、hex/十进制渲染、属性值规范化、
+/// 资源引用解析辅助。仅使用 moonbitlang/core 与本模块公开 API。
 
 ///|
 /// JSON 字符串转义（RFC 8259 最小充分子集：引号、反斜杠、控制字符）。
@@ -106,7 +106,7 @@ struct RefCtx {
 }
 
 ///|
-/// [接线点 · WP-1 arsc] 资源引用名字级解析（`@type/name`，如 `@string/app_name`）。
+/// 资源引用名字级解析（resources.arsc 链；`@type/name`，如 `@string/app_name`）。
 /// 命中 -> `@type/name`；未命中/无表 -> `@0x%08x`。作为 resolve_attr 的降级回退。
 fn resolve_res_ref(table : @axml.ResTable?, res_id : UInt32) -> String {
   match table {
@@ -120,7 +120,7 @@ fn resolve_res_ref(table : @axml.ResTable?, res_id : UInt32) -> String {
 }
 
 ///|
-/// [接线点 · WP-1 arsc·已升级] `--resolve` 属性值渲染：`@axml.resolve_attr_value`
+/// `--resolve` 属性值渲染：`@axml.resolve_attr_value`
 /// （AXML 文档 + 资源表联合解析）的 `ResolvedAttr.text`（解析后的人类可读值，
 /// 如 `@string/app_name` → `MyApp`）。
 /// 降级链（保持既有回退与退出码约定）：
@@ -153,8 +153,8 @@ fn resolve_attr(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
 
 ///|
 /// 属性值规范化渲染（无 --resolve 时与 aapt2 dump xmltree 渲染逐字段对齐、
-/// 与 fixtures/golden 黄金逐字节一致；--resolve 时 Reference/Attribute 走
-/// `resolve_attr` 接线点解析为人类可读值）。
+/// 与 tests/ASSETS.md §4 黄金口径逐字节一致；--resolve 时 Reference/Attribute 走
+/// `resolve_attr` 解析为人类可读值）。
 fn attr_value(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
   if ctx.resolve && (a.value_type is Reference || a.value_type is Attribute) {
     return resolve_attr(ctx, a)

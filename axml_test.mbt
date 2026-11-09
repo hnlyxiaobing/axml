@@ -2,8 +2,8 @@
 // Prefer high-level behaviors over implementation details.
 // Run `moon test` to execute and `moon test --update` to refresh snapshots.
 //
-// 工作区没有真实 APK 资产（docs/open-questions.md Q1），全部样本在测试代码中
-// 以编程方式构造：合法样本覆盖 UTF-8 / UTF-16 字符串池，畸形样本覆盖截断、
+// 本文件全部样本在测试代码中以编程方式构造（真实样本证据链见 fixtures_test.mbt
+// 与 tests/ASSETS.md）：合法样本覆盖 UTF-8 / UTF-16 字符串池，畸形样本覆盖截断、
 // 非法 chunk 头、非法字符串索引与厂商变体布局。
 
 ///|

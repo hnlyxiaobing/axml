@@ -1,6 +1,6 @@
-// WP-G / Q1 畸形派生用例（R2 准备轮新增文件）：从**真实** AXML 样本派生，
+// 畸形派生用例：从**真实** AXML 样本派生，
 // 覆盖截断 / 偏移污染 / 错误索引 / 未知 chunk。断言目标：报 `AxmlError` 而非 panic。
-// 样本来源与哈希见 fixtures/golden/ASSETS.md；L1 样本见 axml/tests/fixtures/。
+// 样本来源与哈希见 tests/ASSETS.md；条目提取样本见 tests/fixtures/。
 
 ///|
 /// 字节级变异：拷贝后把 `offset` 处改成 `value`。
@@ -212,11 +212,11 @@ test "axml malformed: checksum 污染 [SKIPPED: AXML 无 checksum 字段]" {
 }
 
 ///|
-/// 程序化 **arsc** 边角样本（WP-4 2026-11-07，**非真实格式兼容证据**）：
-/// 与 axml/tests/fixtures/edge-arsc-{truncated,badheadersize,badtype}.bin 同字节
-/// （派生命令见 fixtures/golden/ASSETS.md §8）。对当前 `@axml.parse` 的实测行为：
+/// 程序化 **arsc** 边角样本（**非真实格式兼容证据**）：
+/// 与 tests/fixtures/edge-arsc-{truncated,badheadersize,badtype}.bin 同字节
+/// （派生命令见 tests/ASSETS.md §8）。对当前 `@axml.parse` 的实测行为：
 /// 全部报 `AxmlError`（RES_TABLE 外层 chunk 非 RES_XML）且不 panic；
-/// 这些派生样本同时是 WP-1 resources.arsc 解析器的边角夹具
+/// 这些派生样本同时是 resources.arsc 解析器的边角夹具
 ///（截断 / headerSize 污染 / 未知 chunk 类型）。
 test "axml malformed: 程序化 arsc 边角样本被拒且不 panic" {
   let fx = fixture_fx_multidex_arsc()

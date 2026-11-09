@@ -1,7 +1,7 @@
 ///|
 /// axml-cli：二进制 AXML / APK 清单 CLI（hnlyxiaobing/axml 公开 API 驱动）。
 /// 契约（根 README.md）：退出码 0=成功 / 1=解析或IO错误 / 2=用法错误；
-/// 默认记录行输出（与 fixtures/golden/axml/*.norm.txt 口径一致），`--json` 机器可读。
+/// 默认记录行输出（规范化口径见 tests/ASSETS.md §4），`--json` 机器可读。
 /// APK 容器条目读取使用 moonbitlang/core/archive/zip（零跨模块依赖）。
 
 ///|
@@ -26,7 +26,7 @@ fn usage_text() -> String {
     "  \{tool_name} --help",
     "",
     "输入: .apk（ZIP 容器，自动取清单条目）或原始二进制 .axml/.xml（按魔数判别）。",
-    "输出: 默认人类可读记录行（规范化口径与 fixtures/golden/axml/*.norm.txt 一致）；",
+    "输出: 默认人类可读记录行（规范化口径见 tests/ASSETS.md §4）；",
     "      --json 输出单行 JSON（stdout）；错误信息一律走 stderr。",
     "退出码: 0=成功 1=解析或IO错误 2=用法错误",
   ])

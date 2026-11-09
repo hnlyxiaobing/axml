@@ -7,7 +7,7 @@
 
 ///|
 /// AXML chunk 类型（AOSP RES_STRING_POOL_TYPE / RES_XML_*_TYPE）。
-/// 仅作节点来源标注，本轮不参与解析决策。
+/// 仅作节点来源标注，暂不参与解析决策。
 pub(all) enum ChunkType {
   StringPool
   XmlTree
@@ -70,7 +70,7 @@ pub(all) struct XmlNode {
 
 ///|
 /// 字符串池视图；`strings` 下标与 chunk 内 string index 一一对应。
-/// `styles` 保留原始字节，本轮不做样式解析。
+/// `styles` 保留原始字节，暂不做样式解析。
 pub(all) struct StringPool {
   encoding : StringEncoding
   strings : Array[String]
