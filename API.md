@@ -68,7 +68,8 @@ qualifier 最优匹配、overlay（RRO/idmap）语义、继承包、bag 压平�
 | `ResolvedAttr` | `pub(all) struct` | 属性解析结果：`text : String`（人类可读值）/ `id : UInt32?` / `origin : ResolveOrigin` |
 | `ResolveOrigin` | `pub(all) enum` | `Literal` / `FromId` / `FromName` / `Unresolved(String)` |
 | `ResLibrary` | `pub(all) struct` | 动态包映射项：`package_id` / `name`（仅展示） |
-| `ArscError` | `pub suberror`（`#derive(Debug)`，导出 `to_repr`） | 6 个变体，见下 |
+| `ArscError` | `pub suberror`（`#derive(Debug)`，导出 `to_repr`） | 12 个变体（R4 增 `BadQualifier/BagNotComplex/BagMissingParent/BagCycle/AttrMissing/AttrCycle`），见下 |
+| `FlattenedBag` | `pub(all) struct` | R4：`id : UInt32` + `attrs : Array[ResMap]`（parent 链压平后的最终映射，保序、子值覆盖） |
 
 ### 函数签名
 
@@ -83,6 +84,12 @@ qualifier 最优匹配、overlay（RRO/idmap）语义、继承包、bag 压平�
 | `ResTable::resolve_id(Self, UInt32) -> String` | id → 人类可读值，跟随引用链（深度≤16、环检测）；简单值直取、bag 渲染 `@type/name` | 未命中/成环/超深以 `@0x%08x` + 标注降级，不抛错 |
 | `resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr` | AXML 属性 → 人类可读值（`ResolvedAttr.text`）；解析顺序：typed Reference/Attribute id（FromId）→ `raw_value` 的 `@type/name`/`@0x...` 文本形式（FromName/FromId）→ String 池字面量/typed 字面量（Literal） | 一切缺口 `Unresolved(原因)`，不抛错；动态引用文本带 `(dynamic)` 并标 `Unresolved` |
 | `ResConfig::is_default(Self) -> Bool` | qualifier 全零判定（lookup 选择策略基础） | — |
+| `ResConfig::from_qualifiers(String) -> ResConfig raise ArscError` | R4：限定符文本 → 配置（`mcc310`/`en-rUS`/`sw600dp`/`land`/`night`/`xhdpi` 等子集） | 未知 token 报 `BadQualifier` |
+| `ResConfig::matches(Self, ResConfig) -> Bool` | R4：资源配置能否作用于设备配置（未指定维度 = 任意；尺寸/SDK 取上界；密度 anydpi/nodpi = 任意） | — |
+| `ResConfig::is_better_than(Self, ResConfig, ResConfig) -> Bool` | R4：逐维优先级比较（通配劣于具体、尺寸取接近上界、密度精确优先再取高密度）；调用方应先 `matches` 过滤 | — |
+| `ResTable::lookup_with(Self, UInt32, ResConfig) -> ResLookup?` | R4：按设备配置做 aapt2 式最优匹配（`lookup_all` + `matches` + `is_better_than`） | 无匹配 `None`（可回退 `lookup`） |
+| `ResTable::flatten_bag(Self, UInt32, ResConfig) -> FlattenedBag raise ArscError` | R4：bag parent 继承链压平（自根向子覆盖同名 map） | 非复杂条目 `BagNotComplex`；parent 缺失 `BagMissingParent`；成环 `BagCycle` |
+| `ResTable::eval_theme_attr(Self, UInt32, UInt32, ResConfig) -> ResValue raise ArscError` | R4：`?attr` 主题求值（跨 `Attribute`/`DynamicAttribute` 多级链；普通 `@ref` 为终点） | 缺失 `AttrMissing`；成环 `AttrCycle` |
 
 ### 值渲染规则（`format_value`，与 aapt2 dump resources 对齐）
 
