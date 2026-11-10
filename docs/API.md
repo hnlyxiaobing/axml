@@ -128,7 +128,7 @@ qualifier 最优匹配、overlay（RRO/idmap）语义、继承包、bag 压平�
 | `moon clean` | ✅ exit 0 |
 | `moon check --deny-warn` | ✅ exit 0（0 error / 0 warning） |
 | `moon build` | ✅ exit 0 |
-| `moon test` | ✅ exit 0，90/90（AXML 黑盒 26 + AXML 白盒 14 + arsc 黑盒 17 + arsc 白盒 6 + 真实样本黄金/畸形系列 27） |
+| `moon test` | ✅ exit 0，101/101（AXML 黑盒 26 + AXML 白盒 14 + arsc 黑盒 19 + arsc 白盒 6 + 真实样本黄金/畸形系列 29） |
 | `moon fmt --check` | ✅ exit 0 |
 
 API 快照：`../pkg.generated.mbti`（`moon info` 再生成：**+153 行 / -0 行**，纯加法性，

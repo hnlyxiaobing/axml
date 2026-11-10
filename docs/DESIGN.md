@@ -77,7 +77,7 @@ L1 逆向输入层，纯 MoonBit 叶子库。职责：**AXML 字节流 → 文�
 
 1. 程序化构造的 UTF-8 / UTF-16 黄金样本解析结果逐字段断言通过（当前 26 个黑盒用例）；
 2. 所有畸形样本（截断、非法 magic、非法字符串索引、厂商变体布局）返回带偏移的 `AxmlError`，无 panic、无静默默认值（当前 14 个白盒用例）；
-3. 门禁全绿：`moon check --deny-warn`、`moon build`、`moon test`（90/90）、`moon fmt --check`；
+3. 门禁全绿：`moon check --deny-warn`、`moon build`、`moon test`（101/101）、`moon fmt --check`；
 4. 与 `aapt2 dump` 的逐字段差分已对入库真实样本完成（tvshell-debug / base / fx-multidex 的清单与资源表、framework-res 的清单 sem；方法与结论见 `../tests/ASSETS.md` §5，黄金值已内嵌于测试代码）；更大第三方样本许可不明、未入库。
 
 ## 12. 未解决问题 / 待验证假设
@@ -89,7 +89,7 @@ L1 逆向输入层，纯 MoonBit 叶子库。职责：**AXML 字节流 → 文�
 
 `../axml.mbt` / `../decode.mbt` 含全部公开类型与 5 个导出函数的**真实实现**；加法性新增
 `../arsc.mbt` / `../arsc_decode.mbt`（resources.arsc 解析链，10 个导出函数 + 16 个类型，
-见 §14 与 API.md）。每条公开 API 有 `///` 文档注释。当前 `moon test` 90/90
+见 §14 与 API.md）。每条公开 API 有 `///` 文档注释。当前 `moon test` 101/101
 （AXML 黑盒 26 + AXML 白盒 14 + arsc 黑盒 17 + arsc 白盒 6 + 真实样本黄金/畸形系列 27），
 `moon check --deny-warn` 0 error / 0 warning。
 
