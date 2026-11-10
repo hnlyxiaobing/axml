@@ -141,6 +141,11 @@ pub fn parse(data : Bytes) -> AxmlDoc raise AxmlError {
     // RES_CHUNK_header.size 必须覆盖整个输入；更短意味着尾随垃圾。
     raise BadHeaderSize(4, size)
   }
+  if size > limit {
+    // 外层 size 超出实际输入：文件在 `limit` 处被截断；必须先拒绝，
+    // 否则后续 chunk 的 limit 会越过输入末尾并触发越界读取。
+    raise UnexpectedEof(limit)
+  }
   let mut pool : StringPool? = None
   let nodes : Array[XmlNode] = []
   let roots : Array[Int32] = []

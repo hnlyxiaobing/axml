@@ -108,6 +108,32 @@ test "axml malformed: 截断真实清单报错且不 panic" {
 }
 
 ///|
+/// 回归：截断点落在字符串载荷内部时，外层 `size` 仍声称完整长度；
+/// 必须在入口按 `size > 输入长度` 拒绝，绝不能把 chunk 界限带出缓冲区。
+test "axml malformed: 任意截断点都报 AxmlError 而非 panic" {
+  let src = fixture_fx_multidex_manifest()
+  let mut cut = 0
+  while cut < src.length() {
+    assert_true(
+      fx_raises(fx_cut(src, cut)),
+      msg="截断到 \{cut} 字节应报 AxmlError",
+    )
+    cut = cut + 1
+  }
+}
+
+///|
+test "axml malformed: 外层 size 超出输入时报 UnexpectedEof" {
+  let src = fixture_fx_multidex_manifest()
+  let inflated = fx_set_u32(src, 4, src.length() + 4)
+  let e = parse_err(inflated)
+  guard e is UnexpectedEof(off) else {
+    fail("外层 size 超长应报 UnexpectedEof")
+  }
+  assert_eq(off, src.length())
+}
+
+///|
 test "axml malformed: 外层 chunk 类型污染报错" {
   let src = fixture_tvshell_manifest()
   // 0x0003 -> 0x0009（非 RES_XML_TYPE）

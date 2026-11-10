@@ -90,7 +90,7 @@ fn utf16z(
 ///|
 /// 解析整个 resources.arsc 文件。
 /// 外层 `RES_TABLE_TYPE`：type==0x0002、headerSize==12；`size` 短于输入视为
-/// 尾随垃圾报 `BadHeader`（与 `parse` 一致），长于输入在读取时报 `Eof`。
+/// 尾随垃圾报 `BadHeader`（与 `parse` 一致），长于输入立即报 `Eof(limit)`。
 /// 全局字符串池必须存在（缺失报 `BadPool`）；多余字符串池与未知 chunk 跳过。
 fn parse_table(data : Bytes) -> ResTable raise ArscError {
   let limit = data.length()
@@ -105,6 +105,9 @@ fn parse_table(data : Bytes) -> ResTable raise ArscError {
   let size = r_u32(data, 4, limit)
   if size < limit {
     raise BadHeader(4, size)
+  }
+  if size > limit {
+    raise Eof(limit)
   }
   let package_count = r_u32(data, 8, limit)
   let mut global_pool : StringPool? = None

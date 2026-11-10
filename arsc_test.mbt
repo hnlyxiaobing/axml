@@ -543,6 +543,18 @@ fn ar_arsc_err(data : Bytes) -> @axml.ArscError raise {
 }
 
 ///|
+/// 解析是否以 `ArscError` 结束（true = 报错）；panic 不会被吞掉，测试直接失败。
+fn ar_raises(b : Bytes) -> Bool {
+  let mut raised = false
+  try ignore(@axml.parse_arsc(b)) catch {
+    _ => raised = true
+  } noraise {
+    _ => ()
+  }
+  raised
+}
+
+///|
 /// 简单条目取值辅助（复杂条目在 bag 测试里单独 match）。
 fn ar_value_of(entry : @axml.ResEntry) -> @axml.ResValue raise {
   match entry.value {
@@ -990,6 +1002,30 @@ test "arsc malformed: 截断/头部/尾随垃圾" {
   }
   let e4 = ar_arsc_err(ar_cat([full, b"\x00"]))
   guard e4 is BadHeader(4, _) else { fail("尾随垃圾应报 BadHeader") }
+}
+
+///|
+/// 回归：截断点落在字符串池/条目载荷内部时，外层 `size` 仍声称完整长度；
+/// 必须在入口按 `size > 输入长度` 拒绝，绝不能越界读取或 panic。
+test "arsc malformed: 任意截断点都报 ArscError 而非 panic" {
+  let src = fixture_fx_multidex_arsc()
+  let mut cut = 0
+  while cut < src.length() {
+    assert_true(
+      ar_raises(fx_cut(src, cut)),
+      msg="截断到 \{cut} 字节应报 ArscError",
+    )
+    cut = cut + 1
+  }
+}
+
+///|
+test "arsc malformed: 外层 size 超出输入时报 Eof" {
+  let src = fixture_fx_multidex_arsc()
+  let inflated = fx_set_u32(src, 4, src.length() + 4)
+  let e = ar_arsc_err(inflated)
+  guard e is Eof(off) else { fail("外层 size 超长应报 Eof") }
+  assert_eq(off, src.length())
 }
 
 ///|
