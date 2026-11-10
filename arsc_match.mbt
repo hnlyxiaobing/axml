@@ -110,8 +110,24 @@ pub fn ResConfig::from_qualifiers(s : String) -> ResConfig raise ArscError {
       out = { ..out, density: 0xFFFE, }
     } else if t.has_suffix("dpi") && t.length() > 3 {
       out = { ..out, density: qual_int(t, 0), }
-    } else if t.has_prefix("r") && t.length() == 3 {
-      out = { ..out, country: t, }
+    } else if t.has_prefix("r") && t.length() >= 3 && t.length() <= 4 {
+      let region = t[1:].to_owned()
+      if region.length() == 2 {
+        for c in region {
+          if !is_ascii_alpha(c) {
+            raise ArscError::BadQualifier(t)
+          }
+        }
+      } else if region.length() == 3 {
+        for c in region {
+          if c < '0' || c > '9' {
+            raise ArscError::BadQualifier(t)
+          }
+        }
+      } else {
+        raise ArscError::BadQualifier(t)
+      }
+      out = { ..out, country: region, }
     } else if t.length() == 2 || t.length() == 3 {
       // 语言码（ISO 639-1 / 639-2/3）
       for c in t {

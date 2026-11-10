@@ -680,12 +680,12 @@ fn parse_library(
     raise BadHeader(off, header_size)
   }
   let count = r_u32(data, off + 8, limit)
-  if count < 0 || count > (csize - header_size) / 264 {
+  if count < 0 || count > (csize - header_size) / 260 {
     raise BadTable(off + 8, "library count exceeds chunk")
   }
   let mut i = 0
   while i < count {
-    let e = off + header_size + 264 * i
+    let e = off + header_size + 260 * i
     let package_id = r_u32(data, e, limit)
     let name = utf16z(data, e + 4, 128, limit)
     libraries.push({ package_id, name, })

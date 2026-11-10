@@ -121,7 +121,7 @@ test "r4 arsc: from_qualifiers 解析" {
     _ => abort("qualifier parse")
   }
   assert_eq(c.language, "en")
-  assert_eq(c.country, "rUS")
+  assert_eq(c.country, "US")
   assert_eq(c.smallest_screen_width_dp, 600)
   assert_eq(c.orientation, 2)
   assert_eq(c.ui_mode, 0x20)
@@ -137,6 +137,20 @@ test "r4 arsc: from_qualifiers 解析" {
     _ => ()
   }
   assert_true(bad, msg="未知 token 应报 BadQualifier")
+}
+
+///|
+/// 地区限定符：去掉 'r' 前缀；支持 2 字母 ISO 与 3 位 UN M.49 数字码。
+test "r4 arsc: from_qualifiers 地区" {
+  let c1 = @axml.ResConfig::from_qualifiers("en-rUS") catch {
+    _ => abort("en-rUS")
+  }
+  assert_eq(c1.country, "US", msg="rUS 应解析为 US")
+  let c2 = @axml.ResConfig::from_qualifiers("es-r419") catch {
+    _ => abort("es-r419")
+  }
+  assert_eq(c2.language, "es", msg="语言 es")
+  assert_eq(c2.country, "419", msg="UN M.49 地区")
 }
 
 ///|

@@ -379,6 +379,18 @@ fn ar_map(name : UInt32, data_type : Int32, data : UInt32) -> Bytes {
 }
 
 ///|
+/// `RES_TABLE_LIBRARY_TYPE` chunk（headerSize=12，每项 260 字节：u32 packageId +
+/// 128×u16 NUL 结尾名）。用于回归 library 条目步长。
+fn ar_library_chunk(libs : Array[(Int32, String)]) -> Bytes {
+  let mut entries = b""
+  for p in libs {
+    entries = entries + ar_w4(p.0) + ar_utf16z(p.1)
+  }
+  let body = ar_cat([ar_w4(libs.length()), entries])
+  ar_cat([ar_w2(0x0203), ar_w2(12), ar_w4(8 + body.length()), body])
+}
+
+///|
 /// 程序化黄金表（非真实 APK）：
 /// 全局池 UTF-8 ["MyApp","Hello","hi"]；类型池/键名池 UTF-16（对齐 framework-res
 /// 的双编码布局）；包 com.example.app(id=0x7f, typeIdOffset=0)；
@@ -819,6 +831,26 @@ test "arsc resolve_id: 引用链与降级" {
     "@0x7f000000",
     msg="未命中保留原 id",
   )
+}
+
+///|
+/// 程序化：RES_TABLE_LIBRARY_TYPE 解析使用 260 字节步长（AOSP ResTable_lib_entry）。
+test "arsc library: 动态包映射步长 260" {
+  let global = ar_pool_utf8(["v"])
+  let type_pool = ar_pool_utf16(["t"])
+  let key_pool = ar_pool_utf16(["k"])
+  let lib_chunk = ar_library_chunk([(1, "lib.one"), (2, "lib.two")])
+  let pkg = ar_package(127, "x", type_pool, key_pool, lib_chunk, 0)
+  let body = ar_cat([global, pkg])
+  let table = @axml.parse_arsc(
+    ar_cat([ar_w2(0x0002), ar_w2(12), ar_w4(12 + body.length()), ar_w4(1), body]),
+  )
+  let p = table.packages.at(0)
+  assert_eq(p.libraries.length(), 2, msg="两个 library 项")
+  assert_eq(p.libraries.at(0).package_id, 1, msg="package_id 1")
+  assert_eq(p.libraries.at(0).name, "lib.one", msg="lib.one")
+  assert_eq(p.libraries.at(1).package_id, 2, msg="package_id 2")
+  assert_eq(p.libraries.at(1).name, "lib.two", msg="lib.two")
 }
 
 ///|
