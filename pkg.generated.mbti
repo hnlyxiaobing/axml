@@ -67,6 +67,12 @@ pub(all) enum ChunkType {
   ResourceMap
 }
 
+pub(all) struct DynamicRefView {
+  origin_id : UInt32
+  runtime_package_id : Int32
+  library_name : String?
+}
+
 pub(all) struct FlattenedBag {
   id : UInt32
   attrs : Array[ResMap]
@@ -174,10 +180,12 @@ pub(all) struct ResTable {
   packages : Array[ResPackage]
   package_count : Int32
 }
+pub fn ResTable::dynamic_ref_view(Self, UInt32) -> DynamicRefView
 pub fn ResTable::eval_theme_attr(Self, UInt32, UInt32, ResConfig) -> ResValue raise ArscError
 pub fn ResTable::find_id(Self, String, String) -> UInt32?
 pub fn ResTable::flatten_bag(Self, UInt32, ResConfig) -> FlattenedBag raise ArscError
 pub fn ResTable::format_value(Self, ResValue) -> String
+pub fn ResTable::library_by_id(Self, Int32) -> ResLibrary?
 pub fn ResTable::lookup(Self, UInt32) -> ResLookup?
 pub fn ResTable::lookup_all(Self, UInt32) -> Array[ResLookup]
 pub fn ResTable::lookup_with(Self, UInt32, ResConfig) -> ResLookup?

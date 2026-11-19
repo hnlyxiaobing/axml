@@ -190,6 +190,19 @@ pub(all) struct ResTable {
 }
 
 ///|
+/// 动态引用映射视图（W5）：暴露 `RES_TABLE_LIBRARY_TYPE` 映射的忠实事实，
+/// 上层据此改写动态引用；本库**不改写**。未命中时 `library_name=None`
+/// （值化降级，不抛错）。
+pub(all) struct DynamicRefView {
+  /// 原始动态引用 id（输入）
+  origin_id : UInt32
+  /// id 中编码的运行时包字节（高字节）
+  runtime_package_id : Int32
+  /// 命中的共享库 `package_id` 对应的名字；未命中 `None`
+  library_name : String?
+}
+
+///|
 /// 资源 id 查询命中：包/类型/条目名 + 最优配置与该配置下的条目。
 pub(all) struct ResLookup {
   package_name : String
@@ -245,6 +258,34 @@ pub fn ResTable::package_by_id(self : ResTable, id : Int32) -> ResPackage? {
     }
   }
   None
+}
+
+///|
+/// 在全部包的 `libraries` 中查找给定 `package_id` 的共享库映射项。
+/// 跨包顺序扫描（所有 `ResPackage.libraries` 拼接搜索）；
+/// 未命中返回 `None`（值化降级，不抛错）。
+pub fn ResTable::library_by_id(self : ResTable, id : Int32) -> ResLibrary? {
+  for p in self.packages {
+    for lib in p.libraries {
+      if lib.package_id == id {
+        return Some(lib)
+      }
+    }
+  }
+  None
+}
+
+///|
+/// 动态引用映射视图（W5）：从 `origin_id` 中提取运行时包字节（高 8 位），
+/// 然后在 library 映射中查找对应的名字。**只暴露映射事实，不改写引用**。
+/// 未命中时 `library_name=None`（值化降级）。
+pub fn ResTable::dynamic_ref_view(
+  self : ResTable,
+  origin_id : UInt32,
+) -> DynamicRefView {
+  let runtime_pkg = ((origin_id >> 24) & 0xFF).reinterpret_as_int()
+  let name = self.library_by_id(runtime_pkg).map(l => l.name)
+  { origin_id, runtime_package_id: runtime_pkg, library_name: name, }
 }
 
 ///|
