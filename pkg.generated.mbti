@@ -8,6 +8,8 @@ import {
 // Values
 pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 
+pub fn encode_arsc(ResTable) -> Bytes raise ArscError
+
 pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 
 pub fn parse_arsc(Bytes) -> ResTable raise ArscError

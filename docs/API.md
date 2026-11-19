@@ -17,7 +17,7 @@
 | D9 | 单表 API 无框架表时 `0x01…` 引用 | 保持原样/Unresolved | 非目标边界；多表联合走 W6 新类型 `ResTableSet` |
 | D10 | ResConfig 构造路径区分 | `from_qualifiers` 构造的 config `size=64`、`raw` 为空字节；解析所得 config `raw`=原始字节 | 恒等式断言须按构造路径区分，不得混用 |
 | D11 | overlay/idmap 求值 | 不解析 idmap（AXML/ARSC 之外的第三种二进制格式）；overlayable 可由上层用现有 AXML+sem 组合 | M4 复核维持不立项（W7 关闭） |
-| D12 | `resources.arsc` 回写 | 当前不提供 `encode_arsc`；已裁决立项 W9、待启动 | 值级回编职责（与 W8 同类）；W9 启动前维持非目标 |
+| D12 | `resources.arsc` 回写 | `encode_arsc(ResTable) -> Bytes raise ArscError` 已交付（W9）；sparse/offset16/compact 显式拒绝（`BadTable`），dense 往返语义等价 | 值级回编职责（与 W8 同类） |
 | D13 | XML 文本→AXML 编译 | 不提供；文本构建继续交给 aapt2/上层工具 | 构建期资源编译非本库职责；M4 裁决不立项（W10 关闭） |
 
 ## 2. 错误模型实数（冻结，不可新增错误变体）

@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9（待启动）、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M4 已交付（W1–W6、W8、W9，2026-11-19；135/135）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9 并交付、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -106,7 +106,7 @@
 | W6 | 多表联合解析新类型 | P2 | M | 加法：1 新 struct + 1 新 pub fn | B9/非目标边界 |
 | W7 | overlay/idmap 支持（**裁决不通过，维持降级**） | P3 | L | 加法：新类型+新函数 | B5 |
 | W8 | AXML 格式级回编（**已交付 M8-1/M8-2/M8-3**） | P3 | XL | 加法：1 新 pub fn | 申报书「后续」 |
-| W9 | resources.arsc 回写（**裁决通过，待启动**） | P2 | L | 加法：1 新 pub fn | 申报书「后续」 |
+| W9 | resources.arsc 回写（**M4 裁决通过，已交付**） | P2 | L | 加法：1 新 pub fn | 申报书「后续」 |
 
 ## 5. 工作包详细设计
 
@@ -239,7 +239,7 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 **降级方案**：维持解析 only 定位，申报书「后续」项如实保留。
 **验收**：T-W8-1（空文档/单元素往返）；T-W8-2（全部入库 AXML fixture 语义往返律）；T-W8-3（encode 产物再 parse 不 panic）；T-W8-4（快照纯加法 + 五门禁）。
 
-### W9 resources.arsc 回写（P2/L，**裁决通过，待启动**）
+### W9 resources.arsc 回写（P2/L，**M4 裁决通过，已交付 2026-11-19**）
 
 **目标**：`ResTable → Bytes` 值级回编，补全「解析→修改→回编」闭环；不做资源编译/打包。
 **非目标**：不做 XML/资源构建、不做 overlay/idmap、不保证与 aapt2 字节级一致（只保证语义往返）。
@@ -249,8 +249,8 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 pub fn encode_arsc(ResTable) -> Bytes raise ArscError
 ```
 
-**实现要点**：复用 W8 字符串池编码思路重建 global/type/key 三池；按解析侧布局写 package/typeSpec/type/entry/bag/library；`ResConfig.raw` 优先原样回写；dense 布局作为默认写出口径。
-**不可逆形态**：sparse/offset16/compact entry、样式块 → 显式拒绝（复用 `BadTable`/`BadChunk`，不新增错误变体）或 dense 规范化，并在 CHANGELOG 与 `docs/API.md` 登记；具体选择按里程碑实测确定。
+**实现要点**：复用 W8 字符串池编码思路（`encode_string_pool`/`enc_u*`/`enc_cat`）重建 global/type/key 三池；按解析侧布局写 package/typeSpec/type/entry/bag/library；`ResConfig.raw` 优先原样回写（空/短为零填充）；dense 布局作为默认写出口径（u32 偏移槽）。
+**不可逆形态**：sparse(0x01)/offset16(0x02)/compact(0x0008) → 显式拒绝（复用 `BadTable`，不新增错误变体），在 CHANGELOG 与 `docs/API.md` 登记。
 **里程碑**：W9-1 文件头+全局池；W9-2 package/typeSpec/type 简单值；W9-3 bag/library/config 变体；W9-4 真实 ARSC fixture 往返。每步独立五门禁。
 **止损条件**：往返律在受控 fixture 上无法闭合即停，不进入下一步。
 **验收**：T-W9-1（程序化最小表往返）；T-W9-2（全部入库 ARSC fixture 语义往返）；T-W9-3（encode 产物再 parse 不 panic + 二次编码稳定）；T-W9-4（快照纯加法 + 五门禁）。
@@ -288,7 +288,7 @@ M4（裁决后） W9             大工程：resources.arsc 回写（独立里�
 
 ## 8. 完成定义（DoD，逐包勾选）
 
-> 2026-11-19 复核：M0–M3 全部已交付工作包（W1–W6、W8）逐项满足；W9 立项未启动，不参与本次勾选。
+> 2026-11-19 复核：M0–M4 全部已交付工作包（W1–W6、W8、W9）逐项满足。
 
 - [x] 新增 API 与 mbti 草案一致（偏差回写本文）
 - [x] 快照 diff 纯加法，CHANGELOG 已登记

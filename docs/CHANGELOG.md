@@ -100,6 +100,17 @@
 - 落地文档：开发计划 §3/§4/§5/§6/§8/§9、README §1/§6、`docs/API.md` D11–D13
 - 新增 pub 声明：无；快照 diff：零变更；测试：129/129 不变
 
+## W9 · resources.arsc 值级回编（2026-11-19）
+
+- 新增 pub 声明：`encode_arsc(ResTable) -> Bytes raise ArscError`（`arsc_encode.mbt`）
+- 范围：全局池 + package（名称/类型池/键名池/typeIdOffset）+ typeSpec（id + entry_count + spec_flags）+ type（dense 布局，config + entries）+ 简单值（全部 15 种 ResDataType）+ bag（parent + maps）+ library chunk
+- 恢复性 dense：写入槽为 u32 偏移（flags=0），稀疏/offset16/compact 显式拒绝（`BadTable`，复用既有变体，不新增错误）
+- `ResConfig.raw` 原样回写；空/短 raw 零填充到 `size`
+- 包名/库名固定 128×u16 NUL 填充，>128 码元拒绝（`BadTable`）
+- 往返律：`parse_arsc(encode_arsc(t))` 与规范化 `t` 语义等价（不要求与 aapt2 字节一致）；空表逐字节一致
+- 快照 diff：纯加法（+1 pub fn）
+- 测试增量：+6 执行用例（W9-1 空表逐字节往返 / 非空全局池往返；W9-2 dense 简单值往返（含双配置 + 颜色/布尔）; W9-3 bag/library/config 变体往返 + sparse/offset16/compact 显式拒绝；W9-4 fx-multidex 真实 ARSC 语义往返）
+
 ## P0 · 文档一致性同步（2026-11-19）
 
 - README 状态行 103/103 → 129/129；能力清单补 `encode` / `--config` / 主题求值 / 动态引用视图 / 多表联合；非目标补 W9/W10/idmap

@@ -1,7 +1,7 @@
 # axml · 二进制 XML 与资源表解析
 
 > 独立发布单元 ｜ L1 逆向输入 ｜ `preferred_target = wasm` ｜ Apache-2.0
-> 状态：`moon test` **129/129** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **135/135** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -13,6 +13,7 @@
 - AXML chunk（字符串池 / resource map / namespace / start-end element）解析与 tree / sem / pool 三种视图
 - AXML 格式级回编 `encode`（字符串池 / resource map / 元素 / 属性 / CDATA，语义往返）
 - `resources.arsc` 全链：package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
+- `resources.arsc` 值级回编 `encode_arsc`（dense 布局语义往返，sparse/offset16/compact 显式拒绝）
 - qualifier 匹配与 aapt2 式最优匹配、引用链深度上限 + 自引用检查（bag/attr 链带环检测）
 - `--config` 设备限定符匹配（`lookup_with` + `from_qualifiers_ext`）
 - 主题感知联合解析（`resolve_attr_value_with_theme` / `eval_theme_attr`）
@@ -24,7 +25,6 @@
 **非目标**
 
 - 不做 aapt2 的构建期资源编译与打包（含 XML 文本→AXML 编译）
-- 不做 `resources.arsc` 回写（W9 已裁决立项、待启动；当前仍不提供）
 - 不解析 overlay/idmap（idmap 属 AXML/ARSC 之外的第三种二进制格式）
 - 不解析框架资源（`0x01…` 引用在无框架资源表时保持原样）
 - 不导出 trait；不 import 任何其他工作区模块
@@ -40,6 +40,7 @@
 
 ```text
 pub fn encode(AxmlDoc) -> Bytes raise AxmlError
+pub fn encode_arsc(ResTable) -> Bytes raise ArscError
 pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
@@ -112,6 +113,6 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
-- 写侧闭环目前只覆盖 AXML（`encode`）；`resources.arsc` 回写 W9 待启动，XML 文本→AXML 编译为明确非目标。
+- 写侧闭环已覆盖 AXML（`encode`）与 ARSC（`encode_arsc`）；XML 文本→AXML 编译为明确非目标。
 - 未自动化项：CLI L4 E2E、wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料（见测试系统设计 §7/§8）。
 
