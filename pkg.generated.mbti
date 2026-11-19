@@ -12,6 +12,8 @@ pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
 
+pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr
+
 pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr raise ArscError
 
 // Errors
@@ -191,6 +193,10 @@ pub fn ResTable::lookup_all(Self, UInt32) -> Array[ResLookup]
 pub fn ResTable::lookup_with(Self, UInt32, ResConfig) -> ResLookup?
 pub fn ResTable::package_by_id(Self, Int32) -> ResPackage?
 pub fn ResTable::resolve_id(Self, UInt32) -> String
+
+pub(all) struct ResTableSet {
+  tables : Array[ResTable]
+}
 
 pub(all) struct ResTypeConfig {
   id : Int32

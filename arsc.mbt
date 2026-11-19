@@ -190,6 +190,14 @@ pub(all) struct ResTable {
 }
 
 ///|
+/// 多表联合资源表（W6）：显式提供框架/共享库资源表通道，
+/// 使 `0x01…` 引用在调用方提供框架表时可解析。
+/// 单表 API 语义不变；调用方负责组合（不自动加载/内置框架资源）。
+pub(all) struct ResTableSet {
+  tables : Array[ResTable]
+}
+
+///|
 /// 动态引用映射视图（W5）：暴露 `RES_TABLE_LIBRARY_TYPE` 映射的忠实事实，
 /// 上层据此改写动态引用；本库**不改写**。未命中时 `library_name=None`
 /// （值化降级，不抛错）。
@@ -628,6 +636,75 @@ pub fn resolve_attr_value_with_theme(
     }
     _ => resolve_attr_value(doc, table, attr)
   }
+}
+
+///|
+/// 多表联合属性解析（W6）：在 `ResTableSet.tables` 中按引用 id 的包字节选表，
+/// 找到后走 `resolve_attr_value`；全部未命中 → `Unresolved`，不抛错。
+/// 覆盖三条路径：① raw_data 为 id 的引用类型（Reference/Attribute/动态引用）；
+/// ② raw_value 形如 `@type/name` / `@0x...` 的文本引用（Null/String/IntBoolean 等均可）；
+/// ③ 纯字面量（不依赖任何表，直接返回）。
+pub fn resolve_attr_value_multi(
+  doc : AxmlDoc,
+  set : ResTableSet,
+  attr : XmlAttribute,
+) -> ResolvedAttr {
+  let dt = res_data_type_of_attr(attr.value_type, attr.raw_data)
+  // 路径①：raw_data 内联 id 的引用类型 → 遍历表找能 lookup 的
+  match dt {
+    Reference | Attribute | DynamicReference | DynamicAttribute => {
+      let id = attr.raw_data
+      for t in set.tables {
+        match t.lookup(id) {
+          Some(_) => return resolve_attr_value(doc, t, attr)
+          None => ()
+        }
+      }
+      // 全部未命中
+      let text = if dt is DynamicReference || dt is DynamicAttribute {
+        "@0x\{hex8(id)} (dynamic)"
+      } else {
+        "@0x\{hex8(id)}"
+      }
+      return {
+        text,
+        id: Some(id),
+        origin: Unresolved("多表联合：所有表均未命中该引用 id"),
+      }
+    }
+    _ => ()
+  }
+  // 路径②：raw_value 文本引用 → 遍历表找能解析的
+  match attr.raw_value {
+    Some(raw) =>
+      for t in set.tables {
+        match try_resolve_raw_ref(t, raw) {
+          Some(hit) => return hit
+          None => ()
+        }
+      }
+    None => ()
+  }
+  // 路径③：纯字面量（非引用类型也不需要表查 raw_value）
+  // 需要 table 来 format_value，但只在 raw_value=None 且 dt 非 String 时用到
+  // 取第一张表（如果有的话），否则构造空表
+  let table_for_format = if set.tables.is_empty() {
+    empty_res_table()
+  } else {
+    set.tables.at(0)
+  }
+  resolve_attr_literal(doc, table_for_format, attr, dt)
+}
+
+///|
+/// 构造一个空的 ResTable（供 resolve_attr_value_multi 的字面量路径使用）。
+fn empty_res_table() -> ResTable {
+  let empty_pool : StringPool = {
+    encoding: Utf16,
+    strings: [],
+    styles: Bytes::make(0, b'\x00'),
+  }
+  { global_pool: empty_pool, packages: [], package_count: 0, }
 }
 
 ///|

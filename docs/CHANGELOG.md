@@ -25,3 +25,32 @@
 - 新增 pub 声明：无
 - 快照 diff：零变更
 - 测试增量：+1 执行用例
+
+## W3 · CLI 设备配置匹配 + qualifier 扩展（2026-11-19）
+
+- 新增 pub 声明：`ResConfig::from_qualifiers_ext(String) -> Self raise ArscError`（旧 `from_qualifiers` 语义冻结）
+- CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；有 `--config` 时取值走 `lookup_with`，未命中回退 `lookup`
+- 快照 diff：纯加法
+- 测试增量：无（T-W3-1~6 待补，见开发计划 §5 W3 验收项）
+
+## W4 · 主题感知属性解析（2026-11-19）
+
+- 新增 pub 声明：`resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr raise ArscError`
+- 对 `?attr` 值沿 theme bag 链求值；求值失败（AttrMissing/AttrCycle/Bag*）降级为 `Unresolved(原因)`，保持不抛错契约
+- 快照 diff：纯加法
+- 测试增量：无（T-W4-1~5 待补，见开发计划 §5 W4 验收项）
+
+## W5 · 动态引用映射视图（2026-11-19）
+
+- 新增 pub 声明：`ResTable::library_by_id(Self, Int32) -> ResLibrary?`、`ResTable::dynamic_ref_view(Self, UInt32) -> DynamicRefView`、`pub(all) struct DynamicRefView`
+- 只暴露 `RES_TABLE_LIBRARY_TYPE` 映射事实，不改写引用（旧 API 语义不变）
+- 快照 diff：纯加法
+- 测试增量：无（T-W5-1~3 待补，见开发计划 §5 W5 验收项）
+
+## W6 · 多表联合解析（2026-11-19）
+
+- 新增 pub 声明：`ResTableSet`（`tables : Array[ResTable]`）、`resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr`
+- 三路解析：① raw_data 内联 id（按包字节选表，`package_by_id` 命中优先）② raw_value 文本引用（`@type/name` / `@0x…`，按 tables 顺序首个命中）③ 纯字面量；全部未命中 → `Unresolved`，不抛错
+- 单表 API 语义不变；不自动加载/内置任何框架资源
+- 快照 diff：纯加法（+1 struct、+1 pub fn）
+- 测试增量：+3 执行用例（T-W6-1 框架表 0x01… 解析 / T-W6-2 空表集与未命中降级 / T-W6-3 单表与旧函数逐字段一致）

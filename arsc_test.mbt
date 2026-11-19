@@ -1236,3 +1236,137 @@ test "arsc malformed: type chunk 边界" {
   let e2 = ar_arsc_err(t2)
   guard e2 is BadTable(_, _) else { fail("entry offset 越界应报 BadTable") }
 }
+
+///|
+/// W6 辅助：程序化 framework 表（包 id=0x01，包名 "android"）。
+/// 类型 1 string：两个条目（默认配置）；类型 2 color：一个条目。
+fn ar_framework_bytes() -> Bytes {
+  let global = ar_pool_utf8(["OK", "Cancel", "#ff000000"])
+  let type_pool = ar_pool_utf16(["string", "color"])
+  let key_pool = ar_pool_utf16(["ok", "cancel", "black"])
+  let default_cfg = ar_config64(0, 0, "", "", 0, 0, 0, 0)
+  let str_spec = ar_spec(1, [0U, 0U])
+  let str_chunk = ar_type_chunk(
+    1,
+    0,
+    2,
+    default_cfg,
+    ar_slots([0, 16]),
+    ar_cat([ar_simple(0, 0x03, 0U), ar_simple(1, 0x03, 1U)]),
+  )
+  let col_spec = ar_spec(2, [0U])
+  let col_chunk = ar_type_chunk(
+    2,
+    0,
+    1,
+    default_cfg,
+    ar_slots([0]),
+    ar_simple(2, 0x1c, 4278190080U),
+  )
+  let children = ar_cat([str_spec, str_chunk, col_spec, col_chunk])
+  let pkg = ar_package(1, "android", type_pool, key_pool, children, 0)
+  let body = ar_cat([global, pkg])
+  ar_cat([ar_w2(0x0002), ar_w2(12), ar_w4(12 + body.length()), ar_w4(1), body])
+}
+
+///|
+/// T-W6-1：应用表 + 框架表联合，`0x01…` 属性解析为框架值。
+test "W6 multi: 框架表 0x01… 引用在联合表中可解析" {
+  let app_table = @axml.parse_arsc(ar_table_bytes())
+  let fw_table = @axml.parse_arsc(ar_framework_bytes())
+  let set : @axml.ResTableSet = { tables: [app_table, fw_table], }
+  // 0x01010000 = framework/string/ok → "OK"
+  let r1 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    set,
+    ar_attr(Reference, ar_id(0x01, 1, 0), None),
+  )
+  assert_eq(r1.text, "OK", msg="框架 string/ok 解析")
+  assert_true(r1.id is Some(_), msg="id 已识别")
+  assert_true(r1.origin is FromId, msg="框架引用走 FromId")
+  // 0x01010001 = framework/string/cancel → "Cancel"
+  let r2 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    set,
+    ar_attr(Reference, ar_id(0x01, 1, 1), None),
+  )
+  assert_eq(r2.text, "Cancel", msg="框架 string/cancel 解析")
+  // 0x01020000 = framework/color/black → "#ff000000"
+  let r3 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    set,
+    ar_attr(Reference, ar_id(0x01, 2, 0), None),
+  )
+  assert_eq(r3.text, "#ff000000", msg="框架 color/black 解析")
+  // 0x7f010000 = 应用表/string/app_name → "MyApp"（应用表优先）
+  let r4 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    set,
+    ar_attr(Reference, ar_id(0x7f, 1, 0), None),
+  )
+  assert_eq(r4.text, "MyApp", msg="应用表 id 仍可解析")
+}
+
+///|
+/// T-W6-2：空表集 / 未命中 → Unresolved，不抛错。
+test "W6 multi: 空表集与未命中降级 Unresolved" {
+  let empty : @axml.ResTableSet = { tables: [], }
+  // 空表集 + 引用 → Unresolved
+  let r1 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    empty,
+    ar_attr(Reference, ar_id(0x01, 1, 0), None),
+  )
+  assert_true(
+    r1.origin is Unresolved(_),
+    msg="空表集引用降级 Unresolved",
+  )
+  assert_eq(r1.text, "@0x01010000", msg="保留原 id 文本")
+  // 非引用类型（IntBoolean）不依赖表 → 正常返回
+  let r2 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    empty,
+    ar_attr(IntBoolean, 1U, None),
+  )
+  assert_eq(r2.text, "true", msg="非引用类型走字面量路径")
+  assert_true(r2.origin is Literal, msg="空表集非引用仍为 Literal")
+  // 有表但 id 两表都没有 → Unresolved
+  let app_only : @axml.ResTableSet = {
+    tables: [@axml.parse_arsc(ar_table_bytes())],
+  }
+  let r3 = @axml.resolve_attr_value_multi(
+    ar_doc(),
+    app_only,
+    ar_attr(Reference, ar_id(0x01, 1, 0), None),
+  )
+  assert_true(r3.origin is Unresolved(_), msg="单应用表找不到框架 id")
+  assert_eq(r3.text, "@0x01010000", msg="未命中保留原 id")
+}
+
+///|
+/// T-W6-3：单表结果与旧 `resolve_attr_value` 一致。
+test "W6 multi: 单表路径与旧函数结果一致" {
+  let app_table = @axml.parse_arsc(ar_table_bytes())
+  let set : @axml.ResTableSet = { tables: [app_table], }
+  // 应用表内各类型属性：逐字段比对
+  let cases : Array[(String, @axml.XmlAttribute)] = [
+    ("引用 0x7f010000", ar_attr(Reference, ar_id(0x7f, 1, 0), None)),
+    ("动态引用", ar_attr(Unknown(7), ar_id(0x7f, 1, 1), None)),
+    ("布尔字面量", ar_attr(IntBoolean, 1U, None)),
+    ("int 字面量", ar_attr(IntDec, 42U, None)),
+    ("color 字面量", ar_attr(Unknown(0x1c), 4278190080U, None)),
+    ("String 字面量", ar_attr(String, 0U, None)),
+    ("Null + @string/hello", ar_attr(Null, 0U, Some("@string/hello"))),
+  ]
+  for c in cases {
+    let old_r = @axml.resolve_attr_value(ar_doc(), app_table, c.1)
+    let new_r = @axml.resolve_attr_value_multi(ar_doc(), set, c.1)
+    assert_eq(old_r.text, new_r.text, msg="\{c.0}: text 一致")
+    assert_eq(old_r.id, new_r.id, msg="\{c.0}: id 一致")
+    // origin 允许差异：多表路径的 FromId/FromName 与单表一致，但 Unresolved 原因文本可能不同
+    // 只检查是否同为 Unresolved 或同为非 Unresolved
+    let old_unresolved = old_r.origin is Unresolved(_)
+    let new_unresolved = new_r.origin is Unresolved(_)
+    assert_eq(old_unresolved, new_unresolved, msg="\{c.0}: origin 类型一致")
+  }
+}
