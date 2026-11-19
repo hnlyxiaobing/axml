@@ -207,7 +207,7 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 
 ## 9. CI 集成与执行入口
 
-五门禁不变（B21 现状 ci.yml，工具链版本钉死断言），2026-11-19 增补两步：Gate 3b `moon run tools/check_fixtures`（T-W2-3 fixture 一致性，five-gates job 内）；新增 `l5-native` job（`moon test --target native`，L5 双目标）。L0/L1/L2/L4 挂 `moon test`；L3/R 仍为可选（SKIPPED 纪律）。
+五门禁不变（B21 现状 ci.yml；2026-11-19 起工具链改为显式安装 latest + 安装完整性校验，因版本化产物返回 403 无法钉死版本），2026-11-19 增补两步：Gate 3b `moon run tools/check_fixtures`（T-W2-3 fixture 一致性，five-gates job 内）；新增 `l5-native` job（`moon test --target native`，L5 双目标）。L0/L1/L2/L4 挂 `moon test`；L3/R 仍为可选（SKIPPED 纪律）。
 
 复验命令（本仓库自包含）：
 
