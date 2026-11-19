@@ -19,8 +19,8 @@ repository = "https://github.com/hnlyxiaobing/axml"
 
 license = "Apache-2.0"
 
-keywords = [ ]
+keywords = [ "android", "axml", "arsc", "binary-xml", "parser" ]
 
 preferred_target = "wasm"
 
-description = ""
+description = "Parse Android binary XML (AXML) and resources.arsc into readable node trees, attributes, string pools and resolved resource values, with format-level encoders."
