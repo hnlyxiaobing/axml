@@ -91,3 +91,19 @@
 - 产物稳定性：encode 结果再次 parse 成功、二次 encode 逐字节相同（不 panic）
 - 快照 diff：零变更
 - 测试增量：+5 执行用例（T-W8-2 ×4 真实样本；T-W8-3 ×1 产物再 parse 与稳定），总 129/129
+
+## M4 · 边界裁决（2026-11-19）
+
+- `resources.arsc` 回写：方案 B 通过，立项 W9（值级回编 `encode_arsc`，里程碑 W9-1..W9-4，待启动）；不做资源编译/打包
+- W7 overlay/idmap：复核维持不立项（idmap 属 AXML/ARSC 之外的第三种二进制格式）
+- XML 文本→AXML 编译：不立项，维持非目标（构建期职责归 aapt2）
+- 落地文档：开发计划 §3/§4/§5/§6/§8/§9、README §1/§6、`docs/API.md` D11–D13
+- 新增 pub 声明：无；快照 diff：零变更；测试：129/129 不变
+
+## P0 · 文档一致性同步（2026-11-19）
+
+- README 状态行 103/103 → 129/129；能力清单补 `encode` / `--config` / 主题求值 / 动态引用视图 / 多表联合；非目标补 W9/W10/idmap
+- README API 索引补齐 mbti 缺失声明（`resolve_attr_value_multi`、`resolve_attr_value_with_theme`、`DynamicRefView`、`from_qualifiers_ext`、`dynamic_ref_view`、`library_by_id`、`ResTableSet`、两个错误枚举及 `to_repr`）
+- 开发计划：DoD 逐项勾选、裁决记录改为闭环、风险表补 W9
+- `docs/API.md`：新增 D11–D13；错误模型表按源码签名修正（`BadChunkType`/`InvalidStringIndex`/`InvalidNodeIndex`/`UnsupportedEncoding`/`VendorVariant`/`BadHeader`/`BadIndex`）
+- 新增 pub 声明：无；快照 diff：零变更；测试：129/129 不变

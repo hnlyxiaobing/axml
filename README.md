@@ -1,7 +1,7 @@
 # axml · 二进制 XML 与资源表解析
 
 > 独立发布单元 ｜ L1 逆向输入 ｜ `preferred_target = wasm` ｜ Apache-2.0
-> 状态：`moon test` **103/103** 通过（2026-11-11 本机实测，另有 3 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **129/129** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -11,14 +11,21 @@
 **能力**
 
 - AXML chunk（字符串池 / resource map / namespace / start-end element）解析与 tree / sem / pool 三种视图
+- AXML 格式级回编 `encode`（字符串池 / resource map / 元素 / 属性 / CDATA，语义往返）
 - `resources.arsc` 全链：package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
 - qualifier 匹配与 aapt2 式最优匹配、引用链深度上限 + 自引用检查（bag/attr 链带环检测）
+- `--config` 设备限定符匹配（`lookup_with` + `from_qualifiers_ext`）
+- 主题感知联合解析（`resolve_attr_value_with_theme` / `eval_theme_attr`）
+- 动态引用映射视图 `dynamic_ref_view`（`origin_id` / `runtime_package_id` / `library_name`）
+- 多表联合解析 `ResTableSet` + `resolve_attr_value_multi`
 - `--resolve` 把资源引用解析为可读值（名字级 `@type/name` → 最终值 → `@0x%08x` 降级）
 - `axml-cli dump`（`--view tree|sem|pool` / `--entry` / `--resolve` / `--arsc` / `--json`）
 
 **非目标**
 
-- 不做 aapt2 的构建期资源编译与打包
+- 不做 aapt2 的构建期资源编译与打包（含 XML 文本→AXML 编译）
+- 不做 `resources.arsc` 回写（W9 已裁决立项、待启动；当前仍不提供）
+- 不解析 overlay/idmap（idmap 属 AXML/ARSC 之外的第三种二进制格式）
 - 不解析框架资源（`0x01…` 引用在无框架资源表时保持原样）
 - 不导出 trait；不 import 任何其他工作区模块
 
@@ -36,15 +43,19 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
+pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr
+pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr
 pub(all) struct AxmlDoc {
 pub fn AxmlDoc::elements(Self) -> Array[XmlNode] raise AxmlError
 pub fn AxmlDoc::node_at(Self, Int32) -> XmlNode raise AxmlError
 pub fn AxmlDoc::string_at(Self, Int32) -> String raise AxmlError
 pub(all) enum ChunkType {
+pub(all) struct DynamicRefView {
 pub(all) struct FlattenedBag {
 pub(all) struct ResBag {
 pub(all) struct ResConfig {
 pub fn ResConfig::from_qualifiers(String) -> Self raise ArscError
+pub fn ResConfig::from_qualifiers_ext(String) -> Self raise ArscError
 pub fn ResConfig::is_better_than(Self, Self, Self) -> Bool
 pub fn ResConfig::is_default(Self) -> Bool
 pub fn ResConfig::matches(Self, Self) -> Bool
@@ -56,15 +67,18 @@ pub(all) struct ResLookup {
 pub(all) struct ResMap {
 pub(all) struct ResPackage {
 pub(all) struct ResTable {
+pub fn ResTable::dynamic_ref_view(Self, UInt32) -> DynamicRefView
 pub fn ResTable::eval_theme_attr(Self, UInt32, UInt32, ResConfig) -> ResValue raise ArscError
 pub fn ResTable::find_id(Self, String, String) -> UInt32?
 pub fn ResTable::flatten_bag(Self, UInt32, ResConfig) -> FlattenedBag raise ArscError
 pub fn ResTable::format_value(Self, ResValue) -> String
+pub fn ResTable::library_by_id(Self, Int32) -> ResLibrary?
 pub fn ResTable::lookup(Self, UInt32) -> ResLookup?
 pub fn ResTable::lookup_all(Self, UInt32) -> Array[ResLookup]
 pub fn ResTable::lookup_with(Self, UInt32, ResConfig) -> ResLookup?
 pub fn ResTable::package_by_id(Self, Int32) -> ResPackage?
 pub fn ResTable::resolve_id(Self, UInt32) -> String
+pub(all) struct ResTableSet {
 pub(all) struct ResTypeConfig {
 pub(all) struct ResTypeSpec {
 pub(all) struct ResValue {
@@ -76,6 +90,12 @@ pub(all) enum ValueType {
 pub(all) struct XmlAttribute {
 pub(all) struct XmlNode {
 pub fn XmlNode::attrs(Self) -> Array[XmlAttribute]
+pub type NodeIndex = Int32
+pub type StringIndex = Int32
+pub suberror ArscError {
+pub fn ArscError::to_repr(Self) -> @debug.Repr
+pub suberror AxmlError {
+pub fn AxmlError::to_repr(Self) -> @debug.Repr
 ```
 
 ## 4. 依赖、平台与许可
@@ -92,4 +112,6 @@ pub fn XmlNode::attrs(Self) -> Array[XmlAttribute]
 
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
+- 写侧闭环目前只覆盖 AXML（`encode`）；`resources.arsc` 回写 W9 待启动，XML 文本→AXML 编译为明确非目标。
+- 未自动化项：CLI L4 E2E、wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料（见测试系统设计 §7/§8）。
 

@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制） ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9（待启动）、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -90,6 +90,9 @@
 | `resolve_id` 环检测文档漂移（B8） | **只修文档**使口径与代码一致；不改既有输出文本（`(too deep)` 语义冻结）。如需真环检测另立新函数（本轮不做，登记为可选） |
 | `from_qualifiers` 扩展 `vNN` 等 token | 接受原被拒输入属行为变更 → 走**新函数** `from_qualifiers_ext` 防火墙，旧函数语义永不改变（W3） |
 | 动态引用改写 | 属本库求值职责（真缺口）；新函数新类型，旧 API 的 `Unresolved` 标注语义不变（W5） |
+| `resources.arsc` 回写（`ResTable → Bytes`） | **裁决通过（M4）**：属「已解码值模型回编」，与 W8 同类；新函数 `encode_arsc`，往返律 `parse_arsc(encode_arsc(t)) ≡ normalize(t)`，不保证与 aapt2 字节一致；不可逆形态（sparse/offset16/compact/样式块）显式拒绝或规范化到 dense 布局并登记 |
+| XML 文本→AXML 编译 | **裁决不通过（M4）**：构建期资源编译（符号分配、资源 id、qualifier 求值）属 aapt2 职责，越出「字节→值」边界；维持非目标 |
+| overlay/idmap 求值 | **复核维持不立项（M4）**：idmap 是 AXML/ARSC 之外的第三种二进制格式；overlayable 由上层用现有 AXML+sem 组合，不进库 |
 
 ## 4. 工作包总览
 
@@ -103,6 +106,7 @@
 | W6 | 多表联合解析新类型 | P2 | M | 加法：1 新 struct + 1 新 pub fn | B9/非目标边界 |
 | W7 | overlay/idmap 支持（**裁决不通过，维持降级**） | P3 | L | 加法：新类型+新函数 | B5 |
 | W8 | AXML 格式级回编（**已交付 M8-1/M8-2/M8-3**） | P3 | XL | 加法：1 新 pub fn | 申报书「后续」 |
+| W9 | resources.arsc 回写（**裁决通过，待启动**） | P2 | L | 加法：1 新 pub fn | 申报书「后续」 |
 
 ## 5. 工作包详细设计
 
@@ -235,6 +239,28 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 **降级方案**：维持解析 only 定位，申报书「后续」项如实保留。
 **验收**：T-W8-1（空文档/单元素往返）；T-W8-2（全部入库 AXML fixture 语义往返律）；T-W8-3（encode 产物再 parse 不 panic）；T-W8-4（快照纯加法 + 五门禁）。
 
+### W9 resources.arsc 回写（P2/L，**裁决通过，待启动**）
+
+**目标**：`ResTable → Bytes` 值级回编，补全「解析→修改→回编」闭环；不做资源编译/打包。
+**非目标**：不做 XML/资源构建、不做 overlay/idmap、不保证与 aapt2 字节级一致（只保证语义往返）。
+**新增 API（mbti 草案，纯加法）**：
+
+```text
+pub fn encode_arsc(ResTable) -> Bytes raise ArscError
+```
+
+**实现要点**：复用 W8 字符串池编码思路重建 global/type/key 三池；按解析侧布局写 package/typeSpec/type/entry/bag/library；`ResConfig.raw` 优先原样回写；dense 布局作为默认写出口径。
+**不可逆形态**：sparse/offset16/compact entry、样式块 → 显式拒绝（复用 `BadTable`/`BadChunk`，不新增错误变体）或 dense 规范化，并在 CHANGELOG 与 `docs/API.md` 登记；具体选择按里程碑实测确定。
+**里程碑**：W9-1 文件头+全局池；W9-2 package/typeSpec/type 简单值；W9-3 bag/library/config 变体；W9-4 真实 ARSC fixture 往返。每步独立五门禁。
+**止损条件**：往返律在受控 fixture 上无法闭合即停，不进入下一步。
+**验收**：T-W9-1（程序化最小表往返）；T-W9-2（全部入库 ARSC fixture 语义往返）；T-W9-3（encode 产物再 parse 不 panic + 二次编码稳定）；T-W9-4（快照纯加法 + 五门禁）。
+
+### W10 XML 文本→AXML 编译（P3/XL，**裁决不通过，维持非目标**）
+
+**候选目标（若立项）**：把文本 XML 编译为 AXML。因需符号分配、资源 id 解析与 qualifier 求值，必须依赖调用方提供的符号表/映射，或引入 aapt2 作为 oracle。
+**裁决结论（2026-11-19，M4）**：不立项。该能力属构建期资源编译，违背「字节→值」职责与零外部依赖判据；正确性无法在无 aapt2 差分的前提下自证。
+**降级方案**：维持非目标；文本构建继续交给 aapt2/上层工具。若未来立项，须先通过新 ADR 解除「外部 oracle 依赖」约束。
+
 ## 6. 里程碑与合入顺序
 
 ```text
@@ -242,11 +268,17 @@ M0（第1日）  W1 → W2        零风险文档/簿记先行
 M1          W3 → W4        高价值低成本：CLI 配置匹配 + 主题求值
 M2          W5 → W6        解析纵深：动态映射视图 + 多表联合
 M3（裁决后） W7 / W8        大工程：overlay/idmap、回编（各自独立里程碑）
+M4（裁决后） W9             大工程：resources.arsc 回写（独立里程碑）
 ```
 
 排序判据：先零风险文档、再安全/正确性缺口（错误簿记）、再高价值低成本、最后大工程；每包独立提交、独立过五门禁。
 
-**须用户裁决项**：① W7 overlay/idmap 是否立项；② W8 回编是否立项（XL，建议先做 M8-1 验证往返律再决定全量）；③ sem label 是否新增 `--resolve-label` 选项（默认建议：不改，按 B15 文档化限制）。
+**裁决记录（全部已闭环）**：
+① W7 overlay/idmap：不立项（M3），M4 复核维持（idmap 属第三种二进制格式）。
+② W8 AXML 回编：立项并交付 M8-1/M8-2/M8-3（M3）。
+③ sem label：不改，按 B15 文档化限制（M3）。
+④ resources.arsc 回写：方案 B 通过，立项 W9、待启动（M4）。
+⑤ XML 文本→AXML 编译：不立项，维持非目标（M4）。
 
 ## 7. 簿记与变更管理
 
@@ -256,13 +288,15 @@ M3（裁决后） W7 / W8        大工程：overlay/idmap、回编（各自独�
 
 ## 8. 完成定义（DoD，逐包勾选）
 
-- [ ] 新增 API 与 mbti 草案一致（偏差回写本文）
-- [ ] 快照 diff 纯加法，CHANGELOG 已登记
-- [ ] T-W*-* 验收全绿；#skip 显式标注原因
-- [ ] 五门禁全绿；CLI 对外契约零意外漂移（无新选项时输出逐字节不变）
-- [ ] 畸形语料无 panic（新增解析路径进截断扫描）
-- [ ] 零新第三方依赖；零许可不明二进制入库
-- [ ] README 能力/非目标同步；本文状态行更新「已交付+日期」
+> 2026-11-19 复核：M0–M3 全部已交付工作包（W1–W6、W8）逐项满足；W9 立项未启动，不参与本次勾选。
+
+- [x] 新增 API 与 mbti 草案一致（偏差回写本文）
+- [x] 快照 diff 纯加法，CHANGELOG 已登记
+- [x] T-W*-* 验收全绿；#skip 显式标注原因
+- [x] 五门禁全绿；CLI 对外契约零意外漂移（无新选项时输出逐字节不变）
+- [x] 畸形语料无 panic（新增解析路径进截断扫描）
+- [x] 零新第三方依赖；零许可不明二进制入库
+- [x] README 能力/非目标同步；本文状态行更新「已交付+日期」
 
 ## 9. 风险登记
 
@@ -272,5 +306,6 @@ M3（裁决后） W7 / W8        大工程：overlay/idmap、回编（各自独�
 | W4 主题求值把 `eval_theme_attr` 错误降级为文本后，上层误以为已解析 | 中 | origin 恒为 `Unresolved(原因)`，测试断言 origin 而非仅 text |
 | W5 动态引用语义核对不足导致视图误导 | 中 | 只暴露映射事实（library_name），文档明确「未完成改写」；AOSP 核对记录进 docs/API.md |
 | W8 往返律在厂商变体样本上不闭合 | 高 | 里程碑止损；厂商变体输入 encode 报 `VendorVariant`（复用既有变体），不静默丢信息 |
+| W9 ARSC 不可逆形态导致「往返」名不副实 | 高 | 里程碑止损；sparse/offset16/compact/样式块显式拒绝或 dense 规范化，并在 CHANGELOG/API.md 登记；往返律限定为语义等价 |
 | fixture 登记重建时哈希与内嵌常量不一致（样本漂移假绿） | 中 | W2 双通道一致性脚本先行，哈希不符即红 |
 | CLI 新选项破坏既有脚本解析 | 低 | 无新选项时输出逐字节冻结（T-W3-4）；帮助文本仅加法 |
