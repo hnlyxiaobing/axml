@@ -240,7 +240,7 @@ test "axml malformed: checksum 污染 [SKIPPED: AXML 无 checksum 字段]" {
 ///|
 /// 程序化 **arsc** 边角样本（**非真实格式兼容证据**）：
 /// 与 tests/fixtures/edge-arsc-{truncated,badheadersize,badtype}.bin 同字节
-/// （派生命令见 tests/ASSETS.md §8）。对当前 `@axml.parse` 的实测行为：
+/// （派生样本登记见 tests/ASSETS.md §1）。对当前 `@axml.parse` 的实测行为：
 /// 全部报 `AxmlError`（RES_TABLE 外层 chunk 非 RES_XML）且不 panic；
 /// 这些派生样本同时是 resources.arsc 解析器的边角夹具
 ///（截断 / headerSize 污染 / 未知 chunk 类型）。

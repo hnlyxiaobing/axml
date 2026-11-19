@@ -29,10 +29,10 @@
 ## W3 · CLI 设备配置匹配 + qualifier 扩展（2026-11-19）
 
 - 新增 pub 声明：`ResConfig::from_qualifiers_ext(String) -> Self raise ArscError`（旧 `from_qualifiers` 语义冻结）
-- CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；有 `--config` 时取值走 `lookup_with`，未命中回退 `lookup`
+- CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；**实际实现仅把 `dev_config` 用于名字级回退 `resolve_res_ref`（`lookup_with`），`--resolve` 取值主路径仍走 `lookup`（默认配置优先）**，未按设备配置选值（2026-11-19 对抗性复核订正；见 `docs/API.md` D15）
 - 快照 diff：纯加法
 - 测试增量：+2 执行用例（T-W3-1 ext 对旧子集 29 组 token 与旧函数逐字段一致；T-W3-2 新 token 解析 + 旧函数拒绝 5 组扩展 token）
-- CLI 实测：T-W3-3/4（带 `--config` 与基线输出逐字节一致——fixture 无多语言变体时正确回退）；T-W3-5（缺 `--resolve` → stderr 报错、退出码 2）
+- CLI 实测：T-W3-5（缺 `--resolve` → stderr 报错、退出码 2）已测；**T-W3-3 未达标**（L4 用例仅断言退出码 0 与 label 出现，夹具单配置，未验证 zh 配置值）；**T-W3-4 未自动化**（仅覆盖未知选项 → 退出码 2，无逐字节基线比对）
 
 ## W4 · 主题感知属性解析（2026-11-19）
 
@@ -52,7 +52,7 @@
 ## W6 · 多表联合解析（2026-11-19）
 
 - 新增 pub 声明：`ResTableSet`（`tables : Array[ResTable]`）、`resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr`
-- 三路解析：① raw_data 内联 id（按包字节选表，`package_by_id` 命中优先）② raw_value 文本引用（`@type/name` / `@0x…`，按 tables 顺序首个命中）③ 纯字面量；全部未命中 → `Unresolved`，不抛错
+- 三路解析：① raw_data 内联 id（**按 `set.tables` 顺序逐表 `lookup`，首个命中者胜出；未使用 `package_by_id` 按包字节选表**）② raw_value 文本引用（`@type/name` / `@0x…`，按 tables 顺序首个命中）③ 纯字面量；全部未命中 → `Unresolved`，不抛错
 - 单表 API 语义不变；不自动加载/内置任何框架资源
 - 快照 diff：纯加法（+1 struct、+1 pub fn）
 - 测试增量：+3 执行用例（T-W6-1 框架表 0x01… 解析 / T-W6-2 空表集与未命中降级 / T-W6-3 单表与旧函数逐字段一致）
@@ -105,7 +105,7 @@
 - 新增 pub 声明：`encode_arsc(ResTable) -> Bytes raise ArscError`（`arsc_encode.mbt`）
 - 范围：全局池 + package（名称/类型池/键名池/typeIdOffset）+ typeSpec（id + entry_count + spec_flags）+ type（dense 布局，config + entries）+ 简单值（全部 15 种 ResDataType）+ bag（parent + maps）+ library chunk
 - 恢复性 dense：写入槽为 u32 偏移（flags=0），稀疏/offset16/compact 显式拒绝（`BadTable`，复用既有变体，不新增错误）
-- `ResConfig.raw` 原样回写；空/短 raw 零填充到 `size`
+- `ResConfig.raw` 按 `size` 切片原样回写；**`size > raw.length()` 直接报 `BadTable`（`from_qualifiers` 构造的 `size=64`、`raw` 空配置不可回编），不存在「空/短零填充」可达分支**（2026-11-19 对抗性复核订正；`arsc_encode.mbt` L128，见 `docs/API.md` D14）
 - 包名/库名固定 128×u16 NUL 填充，>128 码元拒绝（`BadTable`）
 - 往返律：`parse_arsc(encode_arsc(t))` 与规范化 `t` 语义等价（不要求与 aapt2 字节一致）；空表逐字节一致
 - 快照 diff：纯加法（+1 pub fn）
@@ -128,7 +128,7 @@
   - 退出码 0：tree / pool / sem 记录行逐字节冻结、`--json` 单行输出
   - 退出码 1：AXML 解析失败、APK 条目缺失、截断 ZIP、非法 `--config` 限定符
   - 退出码 2：用法错误矩阵 9 例（缺/未知子命令、未知选项、缺输入、非法 view、`--arsc`/`--config` 缺 `--resolve`、`--entry` 对非 ZIP、`--resolve` 无表）+ 无输入字节时 2 例；`dump --help` / 顶层 `--help` -> 退出码 0（1 例，契约冻结）
-  - 场景：APK 直读（手工构造 Store 型 ZIP）与裸 AXML dump 输出一致、`--entry` 指定条目、`--resolve --arsc` 引用解析为 `MyApp`、`--config` 走 `lookup_with`、未知选项冻结
+  - 场景：APK 直读（手工构造 Store 型 ZIP）与裸 AXML dump 输出一致、`--entry` 指定条目、`--resolve --arsc` 引用解析为 `MyApp`、`--config` 选项/限定符解析/名字级回退接线（**未验证按配置选值**）、未知选项冻结
 - 复验：`moon test` 152/152 执行通过 + 3 `#skip`（2026-11-19）；真实 CLI 回归（base/fx-multidex 的 tree/sem/json、`--resolve` 解析 `Fx Multidex`、用法错 2 / IO 错 1）逐项一致
 
 ## P0 · 文档一致性同步（2026-11-19）
@@ -138,3 +138,15 @@
 - 开发计划：DoD 逐项勾选、裁决记录改为闭环、风险表补 W9
 - `docs/API.md`：新增 D11–D13；错误模型表按源码签名修正（`BadChunkType`/`InvalidStringIndex`/`InvalidNodeIndex`/`UnsupportedEncoding`/`VendorVariant`/`BadHeader`/`BadIndex`）
 - 新增 pub 声明：无；快照 diff：零变更；测试：129/129 不变
+
+## 文档-代码对抗性核对订正（2026-11-19）
+
+本次核对以源码/测试实跑为证据，订正了以下夸大或过时表述（不改变任何代码逻辑）：
+
+- W3：`--config` 未接入 `--resolve` 取值主路径，仅名字级回退用 `lookup_with`；T-W3-3 未达标、T-W3-4 未自动化（上文 W3/L4 条目与 `docs/API.md` D15）
+- W2：T-W2-3 双通道一致性脚本未落地（仓库无脚本，`tests/ASSETS.md` §2 已改）
+- W6：多表解析实际按 `tables` 顺序首个命中，未使用 `package_by_id`（上文 W6 条目）
+- W9：`ResConfig.raw` 空/短零填充表述不实，实际 `size > raw.length()` 报 `BadTable`（`docs/API.md` D14）
+- 计数：`moon test` 实测 152/152 + 3 skip，155 个 test 声明；测试系统设计原 135/135、138 声明与「cmd/main 无测试」已订正
+- 开发计划 DoD 不再声称「T-W*-* 验收全绿」；§2 缺失能力清单移除已交付的 vNN 项，补入 T-W2-3 与 `--config` 选值缺口
+- 注释/帮助文本：`tests/ASSETS.md` 记录行格式实为 §3（原多处误写 §4/§7）；`arsc.mbt` fraction 注释「×100」订正为「不乘 100」；`ci.yml` 不再把不存在的 `pkg.generated.mbti.r1` 当作实存文件描述

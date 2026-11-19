@@ -99,7 +99,8 @@ fn int_dec(v : UInt32) -> String {
 
 ///|
 /// 资源引用解析上下文：`--resolve` 开启时把 Reference/Attribute 属性解析为人类可读值；
-/// `dev_config`（来自 `--config`）指定后资源匹配走 `lookup_with`（扩展版 qualifier 匹配）。
+/// `dev_config`（来自 `--config`）仅用于名字级回退 `resolve_res_ref` 的 `lookup_with`；
+/// 引用取值主路径 `resolve_attr_value` 仍走默认配置优先的 `lookup`（见 docs/API.md D15）。
 struct RefCtx {
   doc : @axml.AxmlDoc
   table : @axml.ResTable?
@@ -168,7 +169,7 @@ fn resolve_attr(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
 
 ///|
 /// 属性值规范化渲染（无 --resolve 时与 aapt2 dump xmltree 渲染逐字段对齐、
-/// 与 tests/ASSETS.md §4 黄金口径逐字节一致；--resolve 时 Reference/Attribute 走
+/// 与 tests/ASSETS.md §3 黄金口径逐字节一致；--resolve 时 Reference/Attribute 走
 /// `resolve_attr` 解析为人类可读值）。
 fn attr_value(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
   if ctx.resolve && (a.value_type is Reference || a.value_type is Attribute) {

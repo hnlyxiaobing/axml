@@ -1,7 +1,7 @@
 ///|
 /// axml-cli：二进制 AXML / APK 清单 CLI（hnlyxiaobing/axml 公开 API 驱动）。
 /// 契约（根 README.md）：退出码 0=成功 / 1=解析或IO错误 / 2=用法错误；
-/// 默认记录行输出（规范化口径见 tests/ASSETS.md §4），`--json` 机器可读。
+/// 默认记录行输出（规范化口径见 tests/ASSETS.md §3），`--json` 机器可读。
 /// APK 容器条目读取使用宽松 ZIP 读取器（zipmin.mbt，零跨模块依赖）。
 ///
 /// L4 E2E：逻辑（选项解析 + 校验 + 解析 + 渲染）经 `cmd_dump_core` 收敛为
@@ -28,12 +28,12 @@ fn usage_text() -> String {
     "      --resolve 把资源引用解析为人类可读值（@string/app_name → MyApp；",
     "      名字级 @type/name 与原值 @0x%08x 为降级回退）；资源表取 --arsc <file>，",
     "      缺省时取 APK 内 resources.arsc",
-    "      --config <qualifiers> 设备限定符串（扩展版），指定后资源匹配走 lookup_with；",
-    "      例：--config sw600dp-port-v21-b+en+US",
+    "      --config <qualifiers> 设备限定符串（扩展版），参与名字级回退 lookup_with；",
+    "      引用取值主路径仍为默认配置优先（见 docs/API.md D15）；例：--config sw600dp-port-v21-b+en+US",
     "  \{tool_name} --help",
     "",
     "输入: .apk（ZIP 容器，自动取清单条目）或原始二进制 .axml/.xml（按魔数判别）。",
-    "输出: 默认人类可读记录行（规范化口径见 tests/ASSETS.md §4）；",
+    "输出: 默认人类可读记录行（规范化口径见 tests/ASSETS.md §3）；",
     "      --json 输出单行 JSON（stdout）；错误信息一律走 stderr。",
     "退出码: 0=成功 1=解析或IO错误 2=用法错误",
   ])

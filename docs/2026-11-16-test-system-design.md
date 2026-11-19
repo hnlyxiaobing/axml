@@ -1,6 +1,6 @@
 # axml 测试系统设计（第一性原理）
 
-> 建立：2026-11-16 ｜ 状态：设计生效，随开发文档逐包落地；M0–M4 已交付，覆盖 135/135 通过 + 3 `#skip`（2026-11-19 复核）｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：设计生效，随开发文档逐包落地；M0–M4 已交付，覆盖 **152/152** 通过 + 3 `#skip`（2026-11-19 本机实测；对抗性复核另发现 T-W2-3、T-W3-3/T-W3-4 未达标，见 §6.1/§10）｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-resource-fidelity-dev-plan.md](2026-11-16-resource-fidelity-dev-plan.md)（`T-W*-*` 验收 ID 一一对应；`B#` 现状证据行均出自该文档 §0 基线表，为 2026-11-16 源码实测核对结论）
 
 ## 1. 第一性原理：本库的正确性是什么
@@ -43,8 +43,8 @@ R  真实样本本地 runner（仓库外路径 + SHA-256 门禁 + 显式 SKIPPED
 | A5 契约稳定 | L5（快照 + 簿记） | L4（记录行/退出码冻结）、L0 防火墙律 |
 | A6 平台等价 | L5（双目标差分） | — |
 
-现状测试基线（2026-11-19 实测）：**138 个 `test` 声明 = 135 执行通过 + 3 `#skip`**（`moon test` 报告 "Total tests: 135, passed: 135, failed: 0"，3 `#skip` 不计入该总数）。
-分布：`axml_test.mbt` 36、`axml_wbtest.mbt` 14、`arsc_test.mbt` 23、`arsc_wbtest.mbt` 6、`arsc_match_test.mbt` 16、`arsc_encode_test.mbt` 6、`encode_fixtures_test.mbt` 5、`fixtures_test.mbt` 21（含 2 skip）、`fixtures_malformed_test.mbt` 11（含 1 skip）。`cmd/main` 无测试（B22）。
+现状测试基线（2026-11-19 实测）：**155 个 `test` 声明 = 152 执行通过 + 3 `#skip`**（`moon test` 报告 "Total tests: 152, passed: 152, failed: 0"，3 `#skip` 不计入该总数）。
+分布：`axml_test.mbt` 36、`axml_wbtest.mbt` 14、`arsc_test.mbt` 23、`arsc_wbtest.mbt` 6、`arsc_match_test.mbt` 16、`arsc_encode_test.mbt` 6、`encode_fixtures_test.mbt` 5、`fixtures_test.mbt` 21（含 2 skip）、`fixtures_malformed_test.mbt` 11（含 1 skip）、`cmd/main/cli_e2e_test.mbt` 17。`cmd/main` 的 L4 E2E（17 例）已由 `moon test` 原生承载（B22 已闭合）。
 
 **`#skip` 显式清单（永不计入通过）**：
 
@@ -58,9 +58,9 @@ R  真实样本本地 runner（仓库外路径 + SHA-256 门禁 + 显式 SKIPPED
 
 | 类 | 形态 | 入库 | 许可 | 现状 |
 |---|---|---|---|---|
-| F-A 程序化构造 | 测试代码字节 builder | 是 | 随仓库 | 已建成：`axml_test.mbt` 26 例、`arsc_test.mbt` 畸形/结构例、`arsc_match_test.mbt` 8 例均程序化构造（B1/B5/B10） |
-| F-B 受控文件 fixture | `tests/fixtures/*.bin` 10 个 | 是 | 哈希登记 | **双通道漂移风险**：文件不被任何测试读取，回归实际依赖 `fixtures_test.mbt` 内嵌字节（FIXTURE-BEGIN/END），一致性无校验（B20）；登记文件 `tests/ASSETS.md` 不存在但被 ≥10 处引用（B17）→ W1 重建登记、W2 一致性脚本 |
-| F-C 生成器资产 | 确定性构建产出 | 是 | 自产/受控自建 | base/tvshell-debug 受控自建、fx-multidex 官方工具链自产、framework-res AOSP Apache-2.0 [仅据既有登记，W1 须在本仓库内重建来源与哈希登记]（B17） |
+| F-A 程序化构造 | 测试代码字节 builder | 是 | 随仓库 | 已建成：`axml_test.mbt` 36 例、`arsc_test.mbt` 畸形/结构例、`arsc_match_test.mbt` 16 例均程序化构造（B1/B5/B10） |
+| F-B 受控文件 fixture | `tests/fixtures/*.bin` 10 个 | 是 | 哈希登记 | **双通道漂移风险仍在**：文件不被任何测试读取，回归实际依赖 `fixtures_test.mbt` 内嵌字节（FIXTURE-BEGIN/END）；`tests/ASSETS.md` 已由 W1 重建、10 个 SHA-256 已人工实测一致，但文件↔内嵌常量逐字节比对**未自动化**（T-W2-3 未落地，仓库无脚本） |
+| F-C 生成器资产 | 确定性构建产出 | 是 | 自产/受控自建 | base/tvshell-debug 受控自建、fx-multidex 官方工具链自产、framework-res AOSP Apache-2.0（W1 已在本仓库重建来源与哈希登记，B17 已闭合） |
 | F-D 真实第三方样本 | 仓库外本地路径 | **否（红线）** | 许可不明 | R runner 承载；真机用例 `#skip` 保留 |
 
 红线：F-D 永不入库；fixture 哈希变更须同步登记 + 黄金记录（防样本漂移假绿）。
@@ -80,19 +80,19 @@ builder 能力清单（现有构造维度，新解析路径必须补齐对应维
 | P2 | 尾随垃圾必拒：合法文档 + 任意非零尾随字节 → `BadHeaderSize`/`BadChunk` | ✔ `trailing bytes after the document raise BadHeaderSize`、`arsc malformed: 截断/头部/尾随垃圾` |
 | P3 | 解析确定性：同字节两次 parse 结果逐字段相等（纯函数无隐藏状态） | ◇ L1 补强（低成本，随 W2） |
 | P4 | 配置退化律：`lookup_with(id, 全零 config)` ≡ `lookup(id)`（默认配置存在时） | ◇ 随 W3（T-W3-1 同族） |
-| P5 | 空 qualifier 律：`is_default(from_qualifiers(""))` 为 true；`from_qualifiers_ext` 对旧子集 token 与旧函数逐字段一致 | 前半 ✔（B10 用例）；后半 ◇ T-W3-1 |
+| P5 | 空 qualifier 律：`is_default(from_qualifiers(""))` 为 true；`from_qualifiers_ext` 对旧子集 token 与旧函数逐字段一致 | 前半 ✔（B10 用例）；后半 ✔ T-W3-1 已落地（29 组 token 逐字段一致） |
 | P6 | 渲染一致律：简单值 id 的 `resolve_id` 文本 ≡ `format_value` 直渲染 | ◇ 随 W2/W3 |
 | P7 | 双通道一致律：`fixtures_test.mbt` 内嵌字节 ≡ `tests/fixtures/*.bin` 文件（逐字节） | ◇ **W2 脚本门禁（T-W2-3）**，B20 |
 | P8 | 动态引用冻结律：旧 API 对 0x07/0x08 动态引用恒 `Unresolved`/`(dynamic)`，任何新包合入后不变 | ✔ 现状断言（B9）；W5 合入时复验 T-W5-2 |
 | P9 | bag 压平保序律：子条目覆盖父条目、输出顺序稳定 | ✔ `r4 arsc: bag 压平`（B11） |
-| P10 | 防火墙律：新函数合入前后，旧函数全部既有用例零改动绿 | ◇ 每包 DoD 强制（T-W4-4/T-W6-3 等） |
+| P10 | 防火墙律：新函数合入前后，旧函数全部既有用例零改动绿 | ◐ 部分承载：T-W4-3/W6-3 覆盖新旧函数一致性；无逐包统一机制 |
 | P11 | 往返律：`parse(encode(doc))` 与 `doc` 规范化等价 | ✔ **W8 已实现**（T-W8-1/2/3 往返用例），现状已落地 |
 
 **位翻转**：对关键字段（chunk type/headerSize/size、stringCount、attributeCount、entry offset、Res_value.size）做单 bit 翻转。注意：AXML 无 checksum，部分翻转后仍是**合法输入**——断言口径为「要么报声明的错误类型，要么输出与翻转前不同/与重算黄金一致」，**不得断言全部必错**（那是 checksum 格式的口径，误用即假绿）。
 
 **边界值矩阵**：空输入/1 字节；headerSize=0/最小合法值/±1；外层 size 恰好 EOF/EOF±1；stringCount=0；attributeCount=0/0xFFFF（预检先于读取，B1）；字符串索引=0xFFFFFFFF；引用链深度 16/17（`(too deep)` 边界，B8）；inflate 输出恰好上限/上限+1（B16）。
 
-**截断扫描**：✔ 已有 `axml malformed: 任意截断点都报 AxmlError 而非 panic`（真实清单全前缀）与 arsc 截断用例；◇ 待建：全部 10 个入库 fixture 的全前缀扫描（大样本抽样 + 全部结构边界点：每个 chunk 头/池偏移表/entry 表边界必采），只允许声明的错误类型，不允许 panic/挂起。W8 encode 产物已入扫描集（T-W8-3）；W7 idmap 经裁决为**非目标**，不进扫描集。
+**截断扫描**：✔ 已有 `axml malformed: 任意截断点都报 AxmlError 而非 panic`（真实清单全前缀）与 arsc 截断用例；◇ 待建：全部 10 个入库 fixture 的全前缀扫描（大样本抽样 + 全部结构边界点：每个 chunk 头/池偏移表/entry 表边界必采），只允许声明的错误类型，不允许 panic/挂起。**W8 `encode` 产物仅做过「再 parse + 二次往返稳定」（T-W8-3），未做全前缀截断扫描；W9 `encode_arsc` 产物同样未入截断扫描集**（L1 待建）。W7 idmap 经裁决为**非目标**，不进扫描集。
 
 **变异语料**：固定种子随机替换/插入/删除，每轮 ≥1000 变异体，断言「不 panic + 错误必属声明变体集」。◇ 待建，脚本层可选 job（无脚本环境显式 SKIPPED，退出码 78 口径）。
 
@@ -122,14 +122,14 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 | F4 | ARSC 全结构（sparse/offset16/compact/bag/library） | ✔ | ✔截断 | ✔ | ✔resources | ✘ | B5 | — |
 | F5 | Res_value 16 类型渲染 | ✔ | ◐位翻转待建 | ✔ | ✔resources | ✘ | B6/B23 | 注释已修正（W1）；位翻转 L1 待建 |
 | F6 | 引用解析（resolve_id/resolve_attr_value） | ✔ | ◐ | ✔ | ◐ | ✔ | B7/B8/B9 | 环检测口径已修正（W1）；动态引用视图 W5 已交付；L4 已覆盖 `--resolve` E2E |
-| F7 | qualifier 匹配（from_qualifiers/lookup_with） | ✔ | ◐ | — | ◐ | ◐ | B10（vNN 不支持） | **W3 已交付** `from_qualifiers_ext`（vNN/BCP47 等）；旧函数冻结；L4 覆盖 CLI `--config` 接线 |
+| F7 | qualifier 匹配（from_qualifiers/lookup_with） | ✔ | ◐ | — | ◐ | ◐ | **W3 部分交付**：`from_qualifiers_ext`（vNN/BCP47 等）已落地、旧函数冻结；CLI `--config` 仅接入解析与名字级回退，取值主路径未走 `lookup_with` | **T-W3-3 未达标**（D15）；T-W3-4 未自动化 |
 | F8 | bag 压平 / ?attr 主题求值 | ✔ | ✔环 | — | — | ✘ | **已实现**（W2 补 BagMissingParent 显式用例；W4 主题求值已交付） | — |
 | F9 | 动态引用映射视图 | ◐解析侧 | — | ✔library | — | ✘ | **已实现**（W5 `dynamic_ref_view` 暴露映射事实，不改写） | — |
 | F10 | 多表联合解析 | ✘ | ✘ | ◐framework-res 可解析 | — | ✘ | **已实现**（W6 `ResTableSet` + `resolve_attr_value_multi`） | — |
 | F11 | overlay/idmap | ✘ | ✘ | ✘ | — | ✘ | **已裁决非目标**（M3/M4 两次排除：idmap 为第三二进制格式，overlayable 分析属上游工具） | 声明降级，不再立项 |
 | F12 | AXML 回编 encode | ✔ | ✘ | ✔ | — | ✘ | **W8 已实现**（`encode(AxmlDoc)->Bytes`，T-W8-1/2/3 往返已落地） | — |
-| S1 | CLI dump 预期场景（EL/AT/SEM/POOL/STR） | ✘ | — | ✔黄金 | ✔badging | **✔** | B13/B22（cmd/main 无测试） | **L4 已落地**（tree/pool/sem/json 记录行逐字节冻结，T-W3-4） |
-| S2 | CLI `--config` 设备配置场景 | ✘ | — | — | ◐ | ✔ | **W3 已实现**（`--config` 已接入，走 `lookup_with`；T-W3-1/2 绿） | **L4 已落地**（T-W3-3/5 已并入） |
+| S1 | CLI dump 预期场景（EL/AT/SEM/POOL/STR） | ✘ | — | ✔黄金 | ✔badging | **✔** | B13/B22 | **L4 已落地**（tree/pool/sem/json 记录行逐字节冻结；T-W3-4 的「无新选项全局逐字节冻结」仍未自动化） |
+| S2 | CLI `--config` 设备配置场景 | ✘ | — | — | ◐ | ◐ | **W3 部分实现**：`--config` 选项/限定符解析/名字级回退已接入，取值主路径仍 `lookup` | L4 仅覆盖退出码与 label 出现，**T-W3-3 未验证**（D15） |
 | S3 | CLI `--entry` APK 直读场景 | ✘ | — | ◐ | — | ✔ | zipmin 已由 L4 覆盖 | **L4 已落地**（APK 直读 == 裸 dump、`--entry`、条目缺失 → 退出码 1） |
 | C1 | 尾随垃圾/截断必拒（fail-closed） | ✔ | ✔ | ✔ | — | ✔ | B1/B19 | L4 已覆盖 CLI 侧（解析失败/截断 ZIP → 退出码 1）；大型变异语料仍归 L1 脚本层 |
 | C2 | 任意畸形不 panic/内存有界 | ✔ | ✔AXML 全前缀；◐ARSC 全 fixture 扫描待建 | ✔ | — | ◇ | B1/B16/B19 | ARSC 全 fixture 截断扫描归 L1 脚本层待建 |
@@ -184,8 +184,8 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 |---|---|---|---|
 | 正常 dump | `main <fixture.axml>` | 退出码 0；记录行仅 `EL\|AT\|SEM\|POOL\|STR\|` 前缀；与黄金逐字节一致 | tree/pool/sem 记录行逐字节冻结（3 例）；`--json` 单行（1 例） |
 | 引用解析 | `main <fixture> --resolve --arsc <table>` | 退出码 0；AT 值列为可读文本；无表可解析项保持 `@0x%08x` | `--resolve --arsc` → `MyApp`（1 例） |
-| 设备配置（W3 后） | `main <fixture> --resolve --arsc <table> --config zh` | 退出码 0；zh 配置命中值；无匹配回退默认（T-W3-3） | `--config zh-rCN` 走 `lookup_with`（1 例）；非法限定符 → 退出码 1（1 例） |
-| 无新选项冻结 | 全部既有命令组合 | 输出逐字节与基线一致（T-W3-4，防契约漂移） | 未知选项 → 退出码 2（1 例）；真实 CLI 回归复核 |
+| 设备配置（W3 后） | `main <fixture> --resolve --arsc <table> --config zh` | 退出码 0；zh 配置命中值；无匹配回退默认（T-W3-3） | 现状仅「`--config zh-rCN` 退出码 0 且输出含 label」（1 例，单配置夹具，**未验证 zh 值**）；非法限定符 → 退出码 1（1 例） |
+| 无新选项冻结 | 全部既有命令组合 | 输出逐字节与基线一致（T-W3-4，防契约漂移） | 仅未知选项 → 退出码 2（1 例）；**无逐字节基线比对，T-W3-4 未自动化** |
 | APK 直读 | `main <apk> --entry AndroidManifest.xml` | 退出码 0；与裸 AXML dump 一致；**无容器完整性结论输出**（C3） | APK 直读 == 裸 dump（1 例）；`--entry` 指定（1 例）；条目缺失 → 退出码 1（1 例） |
 | 用法错误 | `--arsc` 缺 `--resolve`；`--resolve` 无表；`--entry` 对非 ZIP；`--config` 缺 `--resolve`（W3 后） | 退出码 **2**，逐例断言（B13；T-W3-5） | 用法错误矩阵 9 例 + 无输入字节 2 例 |
 | 解析失败 | 畸形/截断 fixture | 退出码 **1**；stderr 含带偏移错误文本；stdout 无部分树输出 | 非法 AXML（1 例）；截断 ZIP（1 例） |
@@ -234,7 +234,7 @@ git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti
 - [ ] L1：全 fixture 截断扫描 + 位翻转 + 变异语料 ≥1000（脚本层，SKIPPED 纪律）
 - [ ] L2：双通道一致性脚本（W2 脚本层，T-W2-3 仍待建：on-disk `tests/fixtures/*` ↔ 内嵌字节比对未自动化）；内嵌字节单通道已由 `moon test` 回归，on-disk 第二通道尚未自动比对
 - [ ] L3：aapt2 差分本地复核 + 版本登记（可选，SKIPPED 纪律）
-- [x] L4：CLI 退出码矩阵 0/1/2 逐例 + 记录行冻结（2026-11-19 落地：`cmd/main/cli_e2e_test.mbt` 17 例，`moon test` 原生承载；T-W3-3/4/5 已并入；真实 CLI 回归复核）
+- [x] L4：CLI 退出码矩阵 0/1/2 逐例 + 记录行冻结（2026-11-19 落地：`cmd/main/cli_e2e_test.mbt` 17 例，`moon test` 原生承载；T-W3-5 已并入；**T-W3-3 未验证、T-W3-4 未自动化**）
 - [ ] L5：快照纯加法（每包已过）；双目标差分（待建）；变异自检 3 缺陷红→绿（待建）
 - [ ] R：仓库外样本 runner + 哈希门禁（真机 `#skip` 保留）
 - [x] W8 对应行（F12、P11）：**已实现**（encode 往返 T-W8-1/2/3 已落地并进入通过计数）；W9 对应行（arsc encode_arsc 值级回编）**已实现**（T-W9-1/2/3/4 已落地）。

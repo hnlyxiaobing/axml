@@ -1,6 +1,6 @@
 ///|
 /// axml-cli 视图渲染：tree / sem / pool（文本记录行与 --json 两种形态）。
-/// 记录行口径见 tests/ASSETS.md §4（EL/AT、SEM、POOL/STR）。
+/// 记录行口径见 tests/ASSETS.md §3（EL/AT、SEM、POOL/STR）。
 /// `ctx` 为资源引用解析上下文（`--resolve`，见 util.mbt）。
 
 ///|
@@ -81,7 +81,7 @@ fn resolve_activity(pkg : String, raw : String) -> String {
 }
 
 ///|
-/// 语义字段提取（sem 记录行口径，见 tests/ASSETS.md §4；label 仅取字符串字面量）。
+/// 语义字段提取（sem 记录行口径，见 tests/ASSETS.md §3；label 仅取字符串字面量）。
 fn sem_info(ctx : RefCtx, doc : @axml.AxmlDoc) -> SemInfo raise @axml.AxmlError {
   let mut pkg = ""
   let mut vc = ""

@@ -8,7 +8,7 @@
 //      package/type/resource 行，与本库解析出的 package_count=0、全局池为空一致。
 //    - framework-res.apk 的 resources.arsc（1759752 字节）过大不内嵌：开发期以
 //      临时整表解析 + aapt2 dump resources 关键条目交叉核对后删除（结论见
-//      tests/ASSETS.md §3）；其类型池 chunk（488 字节）永久内嵌于 arsc_wbtest.mbt。
+//      tests/ASSETS.md §1）；其类型池 chunk（488 字节）永久内嵌于 arsc_wbtest.mbt。
 // 2) 覆盖 header/字符串池/TypeSpec/Type/Entry/Res_value 的样本在测试代码中程序化
 //    构造（明确标注为程序化，不代表真实 APK 兼容结论）。
 //

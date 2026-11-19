@@ -912,7 +912,7 @@ fn res_data_type_of(data_type : Int32) -> ResDataType {
 ///|
 /// 复杂数值解码（AOSP `Res_value::COMPLEX_*`）：dimension/fraction。
 /// data 布局：bit0-3 单位、bit4-5 radix、bit8-31 有符号 23 位尾数。
-/// fraction 按 aapt2 风格 ×100 渲染为百分数。
+/// fraction 与 aapt2 dump 一致：按原始 complex 值渲染并加 `%`，**不乘 100**。
 fn complex_number(data : UInt32, is_fraction : Bool) -> String {
   let unit = (data & 15U).reinterpret_as_int()
   let radix = ((data >> 4) & 3U).reinterpret_as_int()

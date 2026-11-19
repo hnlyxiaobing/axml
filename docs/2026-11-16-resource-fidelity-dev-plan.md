@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M4 已交付（W1–W6、W8、W9，2026-11-19；152/152）；L4 CLI E2E 已落地（2026-11-19，+17 例）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9 并交付、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M4 已交付（W1–W6、W8、W9，2026-11-19；152/152），**但对抗性复核发现两处未达标：W2 的 T-W2-3 双通道脚本门禁未落地、W3 的 `--config` 未接入引用取值主路径**；L4 CLI E2E 已落地（2026-11-19，+17 例）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9 并交付、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -29,7 +29,7 @@
 | B19 | 五门禁 2026-11-16 本机实测全绿：`moon check --deny-warn` / `build` / `test` **103/103** / `fmt --check` / `info`+快照无 diff。3 个 `#skip` 不计通过：①checksum 污染（AXML 无 checksum 字段，N/A）②framework-res tree/pool 黄金过大未登记 ③真机测试本轮不执行 | 本机实跑输出；`fixtures_malformed_test.mbt` L235、`fixtures_test.mbt` L542/L571 |
 | B20 | `tests/fixtures/*.bin` 10 个文件**不被任何测试读取**；回归实际依赖 `fixtures_test.mbt` 内嵌字节常量（FIXTURE-BEGIN/END 标记）；文件↔内嵌一致性无自动化校验 | `fixtures_test.mbt` L18-30 等；全测试文件无文件读取调用 |
 | B21 | 零第三方依赖（`moon.mod` 无 import）；CLI 仅用 core（async/fs/compress/flate/env）；`preferred_target=wasm`；CI 为 wasm 五门禁 + 工具链版本钉死断言（moon 0.1.20261104 / moonc v0.10.20+65efd5b93） | `moon.mod`、`cmd/main/moon.pkg`、`.github/workflows/ci.yml` |
-| B22 | **测试缺口（部分关闭）**：CLI 契约无自动化回归——2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt` 16 例，`moon test` 原生承载，经行为保持型重构引入 `Sink` + 公开 `cli_run`）；**仍开放**：CI 仅 wasm 目标，无 wasm/native 双目标等价门禁（L5 待建） | `cmd/main/cli_e2e_test.mbt`；`ci.yml` L55 |
+| B22 | **测试缺口（部分关闭）**：CLI 契约无自动化回归——2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt` 17 例，`moon test` 原生承载，经行为保持型重构引入 `Sink` + 公开 `cli_run`）；**仍开放**：CI 仅 wasm 目标，无 wasm/native 双目标等价门禁（L5 待建） | `cmd/main/cli_e2e_test.mbt`；`ci.yml` L55 |
 | B23 | **漂移**：`complex_number` 头注释称 fraction「×100 渲染为百分数」，实现注释与代码均为「不乘 100」（与 aapt2 dump 一致，实现正确） | `arsc.mbt` L719 vs L736-738 |
 | B24 | `from_qualifiers` 构造的 config `size=64`、`raw` 为空字节；解析所得 config `raw`=原始字节。恒等式断言须按构造路径区分 | `arsc_match.mbt` L22-45；`arsc_decode.mbt` `parse_config` L584 |
 
@@ -61,10 +61,10 @@
 | AXML chunk/节点树/typed 属性 | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
 | UTF-8/UTF-16 字符串池 | ✔ 严格 | ✔ | ✔ | ✔ | ✔ | ✔ |
 | ARSC 全结构（sparse/offset16/compact/bag） | ✔ | ✔ | ✔ | ◐ | ✘ | ✘ |
-| 设备配置最优匹配 | ✔ 库层（CLI 未接入，B14） | ◐ | ✔ | ✔（GetResource 带 config） | ✘ | ✘ |
+| 设备配置最优匹配 | ✔ 库层；CLI 仅 `--config` 解析 + 名字级回退（取值主路径仍默认配置优先，D15） | ◐ | ✔ | ✔（GetResource 带 config） | ✘ | ✘ |
 | 引用解析为可读值 | ✔（单表） | ✔ | ✔ | ✔ | ✘（留 resourceId:0x…） | ✘ |
 | bag 压平 / ?attr 主题求值 | ✔ | ◐ | ✔ | — | ✘ | ✘ |
-| 回编/写入/创建资源 | ✘（非目标） | ✘ | ✔（读写创建+JSON/XML 往返） | ✘ | ✘ | ✘ |
+| 回编/写入/创建资源 | ✔ 格式级回编（AXML `encode` / ARSC `encode_arsc`；不做资源编译/打包） | ✘ | ✔（读写创建+JSON/XML 往返） | ✘ | ✘ | ✘ |
 | manifest 语义对象 | ◐（CLI sem 字段级） | ✔ | ✔ | ✔（Manifest struct） | ✔（深度语义） | ✘ |
 | 字节偏移错误模型 / fail-closed | ✔ | ◐ | ◐ | ◐ | ◐ | ◐ |
 | 纯值零依赖 + wasm/native 双目标 | ✔ | ✘ | ✘ | ✘ | ✘ | ✘ |
@@ -72,7 +72,7 @@
 - 证据等级：ARSCLib/androidbinary/adbkit-apkreader/axmldec 能力结论 = [已联网核实 2026-11-16，一手 README]；androguard = [已知常识]+二手用法片段；表中 ◐/— 与各家 star 数、维护状态 = [需联网核实]。
 - **最接近 1–3 名**：① shogo82148/androidbinary（Go，MIT）——同为「解析 only + 配置感知取值 + 高层 label/icon」组合，重叠度最高；② REAndroid/ARSCLib（Java）——读侧超集且含写侧（本库非目标）；③ androguard（Python）——AXML+ARSC+语义全栈。
 - **差异化判断**：本库是「已有成熟解析能力的 MoonBit 独立重写 + 组合语义差异化」——严格 fail-closed 结构校验（尾随垃圾拒绝、NUL/UTF 严格）、字节偏移错误模型、纯值零依赖、wasm/native 双目标、AXML×ARSC 单库联合解析。该组合在检索范围内未见同语言同类 [需联网核实：mooncakes 搜索接口 422 不可用，结论限定为已发布包+可用索引、调研时点 2026-11-16]。
-- **缺失能力清单**：已声明非目标=资源编译/打包、框架资源（无表时）、overlay/idmap（申报书「后续」；W8 回编、W9 arsc 回写已交付，不再属缺口）；**真缺口**（M0–M4 交付后剩余）=`vNN` 等 qualifier 子集（B10）、L5 双目标差分/变异自检（脚本层）；CLI E2E 自动化（B22）已于 2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt`，`moon test` 原生承载）。
+- **缺失能力清单**：已声明非目标=资源编译/打包、框架资源（无表时）、overlay/idmap（申报书「后续」；W8 回编、W9 arsc 回写已交付，不再属缺口）；**真缺口**（M0–M4 交付后剩余）=L5 双目标差分/变异自检（脚本层）、W2 的 fixture 双通道一致性脚本（T-W2-3，未落地）、W3 的 CLI `--config` 按设备配置选值（仅接线到名字级回退，D15）。CLI E2E 自动化（B22）已于 2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt`，`moon test` 原生承载）。
 
 ## 3. 边界裁决（P3 结论）
 
@@ -116,28 +116,28 @@
 **非目标**：不改任何代码行为、不改 API、不改 CLI 输出（帮助文本中失效引用改为实存文件除外）。
 **新增 API**：无。
 **实现要点**：
-- 新建 `tests/ASSETS.md`：10 个 fixture 的 SHA-256 全量登记 + 来源/许可（受控自建/官方工具链自产/AOSP Apache-2.0）+ 黄金规范化口径（EL/AT、SEM、POOL/STR 记录行格式，即现 CLI 帮助所称 §4）+ 畸形派生命令 + 内嵌常量与文件双通道说明；许可不明第三方样本只登记「仓库外路径约定 + 哈希 + 显式 SKIPPED」，不入库。
+- 新建 `tests/ASSETS.md`：10 个 fixture 的 SHA-256 全量登记 + 来源/许可（受控自建/官方工具链自产/AOSP Apache-2.0）+ 黄金规范化口径（EL/AT、SEM、POOL/STR 记录行格式，位于该文件 §3；CLI 帮助文本原误写 §4，已订正）+ 畸形派生样本登记（**仅文件名，未记录派生命令**）+ 内嵌常量与文件双通道说明；许可不明第三方样本只登记「仓库外路径约定 + 哈希 + 显式 SKIPPED」，不入库。
 - 新建 `docs/API.md`：降级项清单（动态引用不改写、overlayable/policy/staged-alias 跳过、styles 不解析、namespace 映射不暴露、跨包名字前缀忽略、qualifier 子集边界、`resolve_id` 深度上限语义）+ 错误模型实数（AxmlError 8 / ArscError 12）；使既有注释引用实存。
 - 新建 `docs/CHANGELOG.md`：登记本包及后续各包。
-- README 修正：§5 记录行清单改为 `EL| AT| SEM| POOL| STR|`；「引用链深度限制与环检测」改为「引用链深度上限与自引用检查；bag/attr 链带环检测」；§6 风险项补「tests/fixtures 文件与内嵌常量一致性由 W2 脚本门禁锁定」。
-- 注释修正：`arsc.mbt` L441 `(cycle)` 口径、L719 ×100 矛盾、`main.mbt` L5 zip 描述、`ci.yml` 失效引用（`pkg.generated.mbti.r1`、docs/API.md 提示改为实存路径）。
+- README 修正：§5 记录行清单改为 `EL| AT| SEM| POOL| STR|`；「引用链深度限制与环检测」改为「引用链深度上限与自引用检查；bag/attr 链带环检测」；§6 风险项原计划补「tests/fixtures 文件与内嵌常量一致性由 W2 脚本门禁锁定」——**该脚本门禁未落地（T-W2-3），README §6 已改为如实标注未自动化**。
+- 注释修正：`arsc.mbt` L441 `(cycle)` 口径、L719 ×100 矛盾（**2026-11-19 对抗性复核补做**，现 L915 已改为「不乘 100」）、`main.mbt` L5 zip 描述、`ci.yml` 失效引用（`pkg.generated.mbti.r1`、docs/API.md 提示改为实存路径）。
 - `docs/DESIGN.md` 引用处理：在 `docs/API.md` 内承接降级策略章节，`axml.mbt` 注释改指 `docs/API.md`（不新建空壳 DESIGN.md）。
 **验收**：T-W1-1（全仓库 grep 无失效文件引用）；T-W1-2（ASSETS.md 哈希与 tests/fixtures 实测一致）；T-W1-3（README 记录行清单与 CLI 实际输出一致）；T-W1-4（五门禁全绿、快照零 diff）；T-W1-5（帮助文本引用的文件实存）。
 
 ### W2 错误簿记补齐 + 双通道一致性（P0/S）
 
-**目标**：错误变体显式用例 20/20（补 B11 缺口）；锁定 fixture 文件↔内嵌常量一致性（B20）。
+**目标**：错误变体显式用例 20/20（补 B11 缺口）；锁定 fixture 文件↔内嵌常量一致性（B20）。**现状（2026-11-19 复核）：前者已完成；后者仅完成哈希登记与人工比对，T-W2-3 脚本门禁未落地，目标未完全达成。**
 **非目标**：不改解析代码；不新增错误变体。
 **新增 API**：无。
 **实现要点**：
 - `arsc_match_test.mbt` 新增用例：构造 bag 其 parent id 在表中不存在（根 id 存在且为 Complex），断言 `BagMissingParent(parent_id)` 变体名与 id 值。
 - 配套文档 `docs/API.md` 错误簿记表：20 变体 × 触发用例名，双向可核对（测试系统设计 §6.2）。
-- 脚本层一致性检查（可选 job，仓库内脚本）：① tests/fixtures 10 文件 SHA-256 与 ASSETS.md 登记比对；② 提取 `fixtures_test.mbt` FIXTURE-BEGIN/END 块字节与对应文件逐字节比对；缺失脚本运行环境时显式 SKIPPED（退出码 78 口径），不得写成通过。
-**验收**：T-W2-1（BagMissingParent 显式用例绿）；T-W2-2（簿记表 20/20 与测试代码双向核对无缺）；T-W2-3（一致性脚本对本仓库 fixture 全绿）；T-W2-4（五门禁全绿、快照零 diff）。
+- 脚本层一致性检查（可选 job，仓库内脚本）：① tests/fixtures 10 文件 SHA-256 与 ASSETS.md 登记比对；② 提取 `fixtures_test.mbt` FIXTURE-BEGIN/END 块字节与对应文件逐字节比对；缺失脚本运行环境时显式 SKIPPED（退出码 78 口径），不得写成通过。**现状（2026-11-19 复核）：未落地**——仓库内无任何脚本文件，亦无 SKIPPED 声明；T-W2-1/T-W2-2 已完成，T-W2-3 未完成。
+**验收**：T-W2-1（BagMissingParent 显式用例绿，已完成）；T-W2-2（簿记表 20/20 与测试代码双向核对无缺，已完成）；T-W2-3（一致性脚本对本仓库 fixture 全绿，**未完成**）；T-W2-4（五门禁全绿、快照零 diff，已完成）。
 
 ### W3 CLI 设备配置匹配 `--config` + qualifier 扩展（P1/M）
 
-**目标**：把库层 `lookup_with` 最优匹配接入 CLI（B14）；以新函数扩展 qualifier 子集（B10），旧 `from_qualifiers` 语义冻结。
+**目标**：把库层 `lookup_with` 最优匹配接入 CLI（B14，**仅名字级回退已接入，取值主路径未接入**）；以新函数扩展 qualifier 子集（B10），旧 `from_qualifiers` 语义冻结。
 **非目标**：不改无 `--config` 时的任何输出字节；不改 `from_qualifiers` 对既有 token 的行为；不做 sem label 引用解析（B15 按现状文档化，变更须另行裁决）。
 **新增 API（mbti 草案，纯加法）**：
 
@@ -147,10 +147,10 @@ pub fn ResConfig::from_qualifiers_ext(String) -> Self raise ArscError
 
 **实现要点**：
 - `from_qualifiers_ext` 在旧子集基础上增加：`vNN`（sdk_version）、`long`/`notlong`、`round`/`notround`、`widecg`/`nowidecg`、`highdr`/`lowdr`、`navhidden`/`navexposed`、`keysexposed`/`keyssoft`/`keyshidden`、`qwerty`/`12key`、`dpad`/`wheel`/`nonav`、`finger`/`nofinger`、`stylus`/`nostylus`、`trackball`/`notouch`、`b+<lang>[+<region>]`（BCP47 子集，映射 language/country）；未知 token 仍复用 `BadQualifier`。旧函数不动（防火墙）。
-- CLI 新选项 `--config <qualifiers>`：仅与 `--resolve` 同用（否则退出码 2，与 `--arsc` 约束同构）；解析用 `from_qualifiers_ext`；`--resolve` 取值路径在有 `--config` 时改走 `lookup_with(id, device)`，未命中回退 `lookup`（默认配置优先），再退 `@0x%08x`。
+- CLI 新选项 `--config <qualifiers>`：仅与 `--resolve` 同用（否则退出码 2，与 `--arsc` 约束同构）；解析用 `from_qualifiers_ext`。**设计口径**为取值改走 `lookup_with(id, device)`、未命中回退 `lookup`；**实际实现（2026-11-19 复核）只把 `dev_config` 用于名字级回退 `resolve_res_ref`，主路径 `resolve_attr_value` 仍用 `lookup`**（`cmd/main/util.mbt` L148-167），T-W3-3 未达标。
 - `util.mbt` 新增内部渲染分支，不动既有 `attr_value` 无 resolve 路径；帮助文本追加选项说明（加法）。
 - 落点：`arsc_match.mbt`（新函数）、`cmd/main/main.mbt`（选项）、`cmd/main/util.mbt`（分支）。
-**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2）；T-W3-6（快照 diff 纯加法 + 五门禁）。T-W3-1/2/6 已自动化且绿；**T-W3-3/4/5 已于 2026-11-19 落地**为 L4 CLI 场景 E2E（`cmd/main/cli_e2e_test.mbt`，`moon test` 原生承载；含 `--config zh-rCN` 走 `lookup_with`、无新选项冻结、`--config` 缺 `--resolve` → 退出码 2 逐例断言）。
+**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致，已完成）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier，已完成）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认，**未达标**：取值主路径 `resolve_attr_value` 仍用 `lookup`，`lookup_with` 只接在名字级回退；L4「config with resolve wired」用例仅断言退出码 0 且输出含 label，且夹具只有单配置，未验证配置选值）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变，**未自动化**：L4 仅覆盖未知选项 → 退出码 2）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2，已完成）；T-W3-6（快照 diff 纯加法 + 五门禁，已完成）。T-W3-1/2/5/6 已自动化且绿；**T-W3-3/4 未达标/未验证**，详见 `docs/API.md` D15。
 
 ### W4 主题感知属性解析新函数（P1/M）
 
@@ -199,7 +199,7 @@ pub(all) struct ResTableSet {
 pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr
 ```
 
-**实现要点**：按 id 包字节选表（`package_by_id` 命中者优先），名字级解析按 tables 顺序首个命中；全部未命中 → `Unresolved`，不抛错。framework-res 的 arsc 已可被 `parse_arsc` 解析（现有 fixture 用例证实），本包只做组合。落点 `arsc.mbt`。
+**实现要点**：按 `set.tables` 顺序逐表 `lookup`，首个命中者胜出（**未使用 `package_by_id` 按包字节选表**；实际实现见 `arsc.mbt` `resolve_attr_value_multi`）；名字级解析同样按 tables 顺序首个命中；全部未命中 → `Unresolved`，不抛错。framework-res 的 arsc 已可被 `parse_arsc` 解析（现有 fixture 用例证实），本包只做组合。落点 `arsc.mbt`。
 **验收**：T-W6-1（应用表+框架表联合，`0x01…` 属性解析为框架值）；T-W6-2（空表集/未命中降级 Unresolved）；T-W6-3（单表结果与旧函数一致）；T-W6-4（快照 diff 纯加法 + 五门禁）。
 
 ### W7 overlay/idmap 支持（P3/L，**裁决不通过，已关闭（M3 不立项；M4 复核维持不立项）**）
@@ -231,7 +231,7 @@ pub fn ResPackage::overlayables(Self) -> Array[ResOverlayable]  // 新类型防�
 pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 ```
 
-**实现要点**：重建字符串池（UTF-16 优先， SORTED 可选）、resource map、namespace/element/cdata chunk；索引越界复用 `InvalidStringIndex`/`InvalidNodeIndex`。里程碑拆分：M8-1 字符串池+空文档往返；M8-2 元素/属性往返；M8-3 真实 fixture 语义往返（`parse(encode(doc))` 与 `doc` 规范化等价）；每里程碑独立五门禁，止损条件=往返律在受控 fixture 上无法闭合即停。
+**实现要点**：重建字符串池（UTF-16 优先， SORTED 可选）、resource map、element/attribute/cdata chunk；**不重建 namespace 声明 chunk**（解析侧本就跳过，`AxmlDoc` 不保留前缀/声明位置，M8-2 交付口径）；索引越界复用 `InvalidStringIndex`/`InvalidNodeIndex`。里程碑拆分：M8-1 字符串池+空文档往返；M8-2 元素/属性往返；M8-3 真实 fixture 语义往返（`parse(encode(doc))` 与 `doc` 规范化等价）；每里程碑独立五门禁，止损条件=往返律在受控 fixture 上无法闭合即停。
 **裁决结论（2026-11-19）**：方案 B 通过，W8 立项。
 **M8-1 交付（2026-11-19）**：`encode` 落地，范围=字符串池（保留 UTF-8/UTF-16 编码与顺序）+ resource map + 空文档；`parse(encode(doc))` 在 UTF-8/UTF-16（含代理对）与 resource map 受控样本上往返成立，编码产物二次往返逐字节稳定。节点表非空与样式块非空以 `VendorVariant` 显式拒绝（不静默丢信息），留待 M8-2。
 **M8-2 交付（2026-11-19）**：元素/属性/CDATA 回编落地；START_ELEMENT 固定 attributeStart/attributeSize=20，END_ELEMENT 与 CDATA 按解析侧布局重建；`ValueType`（含 `Unknown`）、`res0`、`raw_data`、`line`、ns/rawValue 可选索引全部保真。往返律在 UTF-8/UTF-16 golden、多根 + 顶层 CDATA、未知属性类型等受控样本上闭合；未被根/父引用的节点、重复访问（多父/环）、缺失池字符串均显式报错。命名空间声明 chunk 不重建（`AxmlDoc` 不保留前缀/声明位置，解析侧本就跳过）。样式块仍以 `VendorVariant` 拒绝。
@@ -249,7 +249,7 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 pub fn encode_arsc(ResTable) -> Bytes raise ArscError
 ```
 
-**实现要点**：复用 W8 字符串池编码思路（`encode_string_pool`/`enc_u*`/`enc_cat`）重建 global/type/key 三池；按解析侧布局写 package/typeSpec/type/entry/bag/library；`ResConfig.raw` 优先原样回写（空/短为零填充）；dense 布局作为默认写出口径（u32 偏移槽）。
+**实现要点**：复用 W8 字符串池编码思路（`encode_string_pool`/`enc_u*`/`enc_cat`）重建 global/type/key 三池；按解析侧布局写 package/typeSpec/type/entry/bag/library；`ResConfig.raw` 按 `size` 切片原样回写，**但 `size > raw.length()` 直接报 `BadTable`**——`from_qualifiers` 构造的 `size=64`、`raw` 空配置无法回编，代码中不存在「空/短零填充」可达分支（`arsc_encode.mbt` L128；见 `docs/API.md` D14）；dense 布局作为默认写出口径（u32 偏移槽）。
 **不可逆形态**：sparse(0x01)/offset16(0x02)/compact(0x0008) → 显式拒绝（复用 `BadTable`，不新增错误变体），在 CHANGELOG 与 `docs/API.md` 登记。
 **里程碑**：W9-1 文件头+全局池；W9-2 package/typeSpec/type 简单值；W9-3 bag/library/config 变体；W9-4 真实 ARSC fixture 往返。每步独立五门禁。
 **止损条件**：往返律在受控 fixture 上无法闭合即停，不进入下一步。
@@ -288,12 +288,12 @@ M4（裁决后） W9             resources.arsc 回写：M4 立项并已交付
 
 ## 8. 完成定义（DoD，逐包勾选）
 
-> 2026-11-19 复核：M0–M4 全部已交付工作包（W1–W6、W8、W9）逐项满足。
+> 2026-11-19 复核：M0–M4 已交付工作包（W1–W6、W8、W9）**大部分满足**；例外：W2 的 T-W2-3、W3 的 T-W3-3/T-W3-4 未达标/未验证（见 W2/W3 条目与 `docs/API.md` D15）。
 
 - [x] 新增 API 与 mbti 草案一致（偏差回写本文）
 - [x] 快照 diff 纯加法，CHANGELOG 已登记
-- [x] T-W*-* 验收全绿；#skip 显式标注原因
-- [x] 五门禁全绿；CLI 对外契约零意外漂移（无新选项时输出逐字节不变）
+- [ ] T-W*-* 验收全绿；#skip 显式标注原因（**例外**：T-W2-3 未落地；T-W3-3 未达标、T-W3-4 未自动化）
+- [x] 五门禁全绿；CLI 对外契约零意外漂移（T-W3-4「无新选项时输出逐字节不变」无自动化，仅代码审查判断）
 - [x] 畸形语料无 panic（新增解析路径进截断扫描）
 - [x] 零新第三方依赖；零许可不明二进制入库
 - [x] README 能力/非目标同步；本文状态行更新「已交付+日期」

@@ -15,7 +15,7 @@
 - `resources.arsc` 全链：package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
 - `resources.arsc` 值级回编 `encode_arsc`（dense 布局语义往返，sparse/offset16/compact 显式拒绝）
 - qualifier 匹配与 aapt2 式最优匹配、引用链深度上限 + 自引用检查（bag/attr 链带环检测）
-- `--config` 设备限定符匹配（`lookup_with` + `from_qualifiers_ext`）
+- `--config` 设备限定符解析（`from_qualifiers_ext`）+ 名字级回退 `lookup_with`；`--resolve` 取值主路径仍为默认配置优先（限制见 `docs/API.md` D15）
 - 主题感知联合解析（`resolve_attr_value_with_theme` / `eval_theme_attr`）
 - 动态引用映射视图 `dynamic_ref_view`（`origin_id` / `runtime_package_id` / `library_name`）
 - 多表联合解析 `ResTableSet` + `resolve_attr_value_multi`
@@ -115,5 +115,5 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
 - 写侧闭环已覆盖 AXML（`encode`）与 ARSC（`encode_arsc`）；XML 文本→AXML 编译为明确非目标。
-- 未自动化项：wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料（见测试系统设计 §8；CLI L4 E2E 已于 2026-11-19 落地）。
+- 未自动化项：wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料、`tests/fixtures` 文件↔内嵌常量一致性脚本（T-W2-3）（见测试系统设计 §8；CLI L4 E2E 已于 2026-11-19 落地）。
 

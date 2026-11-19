@@ -1,6 +1,6 @@
 # axml API 与降级登记
 
-> 建立：2026-11-19 ｜ 承接所有源码注释中 `docs/API.md` / `docs/DESIGN.md` 的降级与边界登记
+> 建立：2026-11-19 ｜ 承接原源码注释中 `docs/DESIGN.md` 的降级与边界登记（现全部统一指向本文件；`docs/DESIGN.md` 不存在）
 
 ## 1. 降级项（全部为冻结语义，见开发文档边界裁决 §3）
 
@@ -19,6 +19,8 @@
 | D11 | overlay/idmap 求值 | 不解析 idmap（AXML/ARSC 之外的第三种二进制格式）；overlayable 可由上层用现有 AXML+sem 组合 | M4 复核维持不立项（W7 关闭） |
 | D12 | `resources.arsc` 回写 | `encode_arsc(ResTable) -> Bytes raise ArscError` 已交付（W9）；sparse/offset16/compact 显式拒绝（`BadTable`），dense 往返语义等价 | 值级回编职责（与 W8 同类） |
 | D13 | XML 文本→AXML 编译 | 不提供；文本构建继续交给 aapt2/上层工具 | 构建期资源编译非本库职责；M4 裁决不立项（W10 关闭） |
+| D14 | `encode_arsc` 的 `ResConfig.raw` 回写 | 仅当 `4 <= size <= raw.length()` 时按 `raw` 前 `size` 字节回写；`size > raw.length()`（含 `from_qualifiers` 构造的 `size=64`、`raw` 空）直接抛 `BadTable`，**不存在零填充分支**（代码中该分支不可达） | 值级回编要求 config 自描述；构造侧如需回编须自行提供 64 字节 `raw` |
+| D15 | CLI `--config` 的设备配置选值 | `--config` 仅做限定符解析（`from_qualifiers_ext`）并供名字级回退 `resolve_res_ref` 走 `lookup_with`；`--resolve` 的引用取值主路径仍是 `resolve_attr_value` → `ResTable::lookup`（默认配置优先），**不会**按设备配置选值。多配置表下 `--config zh-rCN` 仍输出默认配置值 | 接入取值路径属行为变更，待另行裁决；当前 L4 仅覆盖选项解析、名字级回退接线与非法限定符 |
 
 ## 2. 错误模型实数（冻结，不可新增错误变体）
 
