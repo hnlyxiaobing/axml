@@ -14,7 +14,7 @@ pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
 
 pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr
 
-pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr raise ArscError
+pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr
 
 // Errors
 #derive(@debug.Debug)

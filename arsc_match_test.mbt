@@ -483,3 +483,297 @@ fn mr_bagmissingparent_table() -> @axml.ResTable {
   }
   { global_pool: mr_pool([]), packages: [pkg], package_count: 1, }
 }
+
+///|
+/// W3 辅助：逐字段比较两个 `ResConfig`（`from_qualifiers` 与 `_ext` 等价性断言）。
+fn mr_config_eq(a : @axml.ResConfig, b : @axml.ResConfig) -> Bool {
+  a.size == b.size &&
+  a.mcc == b.mcc &&
+  a.mnc == b.mnc &&
+  a.language == b.language &&
+  a.country == b.country &&
+  a.orientation == b.orientation &&
+  a.touchscreen == b.touchscreen &&
+  a.density == b.density &&
+  a.keyboard == b.keyboard &&
+  a.navigation == b.navigation &&
+  a.input_flags == b.input_flags &&
+  a.screen_width == b.screen_width &&
+  a.screen_height == b.screen_height &&
+  a.sdk_version == b.sdk_version &&
+  a.screen_layout == b.screen_layout &&
+  a.ui_mode == b.ui_mode &&
+  a.smallest_screen_width_dp == b.smallest_screen_width_dp &&
+  a.screen_width_dp == b.screen_width_dp &&
+  a.screen_height_dp == b.screen_height_dp &&
+  a.locale_script == b.locale_script &&
+  a.color_mode == b.color_mode &&
+  a.raw == b.raw
+}
+
+///|
+/// T-W3-1：`from_qualifiers_ext` 对旧子集全部 token 与旧函数逐字段一致。
+test "W3 qualifier: ext 对旧子集逐字段一致" {
+  let cases : Array[String] = [
+    "", "en", "en-rUS", "es-r419", "mcc310", "mnc004", "sw600dp", "w1024dp", "h768dp",
+    "port", "land", "night", "notnight", "car", "desk", "television", "appliance",
+    "watch", "ldpi", "mdpi", "tvdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi", "nodpi",
+    "anydpi", "480dp", "en-rUS-sw600dp-land-night-xhdpi",
+  ]
+  for c in cases {
+    let old = @axml.ResConfig::from_qualifiers(c) catch {
+      _ => abort("旧函数解析失败: \{c}")
+    }
+    let ext = @axml.ResConfig::from_qualifiers_ext(c) catch {
+      _ => abort("ext 解析失败: \{c}")
+    }
+    assert_true(mr_config_eq(old, ext), msg="\{c}: 逐字段一致")
+  }
+}
+
+///|
+/// T-W3-2：ext 新 token 正确解析，旧函数对同类输入仍报 `BadQualifier`。
+test "W3 qualifier: ext 新 token 与旧函数拒绝" {
+  let v21 = @axml.ResConfig::from_qualifiers_ext("v21") catch {
+    _ => abort("v21")
+  }
+  assert_eq(v21.sdk_version, 21, msg="vNN → sdk_version")
+  let bcp = @axml.ResConfig::from_qualifiers_ext("b+en+US") catch {
+    _ => abort("b+en+US")
+  }
+  assert_eq(bcp.language, "en", msg="b+ 语言")
+  assert_eq(bcp.country, "US", msg="b+ 地区")
+  let bcp_zh = @axml.ResConfig::from_qualifiers_ext("b+zh") catch {
+    _ => abort("b+zh")
+  }
+  assert_eq(bcp_zh.language, "zh", msg="b+ 无地区")
+  let long = @axml.ResConfig::from_qualifiers_ext("long") catch {
+    _ => abort("long")
+  }
+  assert_eq(long.screen_layout & 0x08, 0x08, msg="long 置位 screenLayout")
+  let round = @axml.ResConfig::from_qualifiers_ext("round") catch {
+    _ => abort("round")
+  }
+  assert_eq(round.screen_layout & 0x04, 0x04, msg="round 置位 screenLayout")
+  let widecg = @axml.ResConfig::from_qualifiers_ext("widecg") catch {
+    _ => abort("widecg")
+  }
+  assert_eq(widecg.screen_layout & 0xC000, 0xC000, msg="widecg 置位")
+  let highdr = @axml.ResConfig::from_qualifiers_ext("highdr") catch {
+    _ => abort("highdr")
+  }
+  assert_eq(highdr.color_mode & 0x08, 0x08, msg="highdr 置位 colorMode")
+  let navhidden = @axml.ResConfig::from_qualifiers_ext("navhidden") catch {
+    _ => abort("navhidden")
+  }
+  assert_eq(navhidden.navigation, 0x10, msg="navhidden → navigation")
+  let keysexposed = @axml.ResConfig::from_qualifiers_ext("keysexposed") catch {
+    _ => abort("keysexposed")
+  }
+  assert_eq(keysexposed.keyboard, 1, msg="keysexposed → keyboard")
+  let qwerty = @axml.ResConfig::from_qualifiers_ext("qwerty") catch {
+    _ => abort("qwerty")
+  }
+  assert_eq(qwerty.input_flags & 0x04, 0x04, msg="qwerty 置位 inputFlags")
+  let dpad = @axml.ResConfig::from_qualifiers_ext("dpad") catch {
+    _ => abort("dpad")
+  }
+  assert_eq(dpad.navigation, 1, msg="dpad → navigation")
+  let finger = @axml.ResConfig::from_qualifiers_ext("finger") catch {
+    _ => abort("finger")
+  }
+  assert_eq(finger.touchscreen, 1, msg="finger → touchscreen")
+  let trackball = @axml.ResConfig::from_qualifiers_ext("trackball") catch {
+    _ => abort("trackball")
+  }
+  assert_eq(trackball.navigation, 3, msg="trackball → navigation")
+  // —— 旧函数对扩展 token 必须仍拒绝（语义冻结）——
+  let rejects : Array[String] = ["v21", "long", "round", "b+en+US", "qwerty"]
+  for c in rejects {
+    let mut got = ""
+    ignore(@axml.ResConfig::from_qualifiers(c)) catch {
+      @axml.ArscError::BadQualifier(t) => got = t
+      _ => ()
+    }
+    assert_eq(got, c, msg="旧函数应拒绝 \{c}")
+  }
+  // 未知 token 新旧同报 BadQualifier
+  let mut ext_bad = ""
+  ignore(@axml.ResConfig::from_qualifiers_ext("xylophone")) catch {
+    @axml.ArscError::BadQualifier(t) => ext_bad = t
+    _ => ()
+  }
+  assert_eq(ext_bad, "xylophone", msg="ext 未知 token 报 BadQualifier")
+}
+
+///|
+/// T-W4-1：theme bag 中 `?attr` 链求到最终字面量（FromTheme）。
+test "W4 theme: ?attr 链求到最终字面量" {
+  let table = mr_table()
+  let def = mr_default()
+  // theme 0x7f010000 中 attr 0x7f020001 是 ?attr → 0x7f020002 → IntDec 15
+  let r = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    table,
+    ar_attr(Attribute, 0x7f020001, None),
+    0x7f010000,
+    def,
+  )
+  assert_eq(r.text, "15", msg="链终点字面量")
+  assert_true(r.origin is FromTheme, msg="origin 为 FromTheme")
+  assert_true(r.id is None, msg="字面量终点无 id")
+  // 动态属性（0x08）同样走主题求值
+  let r2 = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    table,
+    ar_attr(Unknown(8), 0x7f020001, None),
+    0x7f010000,
+    def,
+  )
+  assert_eq(r2.text, "15", msg="动态属性链求值")
+}
+
+///|
+/// T-W4-2：AttrMissing / AttrCycle / theme 非 bag 均降级 `Unresolved`，不抛错。
+test "W4 theme: 求值失败降级 Unresolved 不抛错" {
+  let table = mr_table()
+  let cyc = mr_cycle_table()
+  let def = mr_default()
+  // attr 缺失
+  let missing = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    table,
+    ar_attr(Attribute, 0x7f020099, None),
+    0x7f010000,
+    def,
+  )
+  assert_true(missing.origin is Unresolved(_), msg="AttrMissing 降级")
+  assert_eq(missing.id, Some(0x7f020099U), msg="保留原始 attr id")
+  // theme 不是 bag（简单值条目）
+  let not_bag = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    table,
+    ar_attr(Attribute, 0x7f020001, None),
+    0x7f010002,
+    def,
+  )
+  assert_true(not_bag.origin is Unresolved(_), msg="theme 非 bag 降级")
+  // ?attr 互环
+  let cycle = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    cyc,
+    ar_attr(Attribute, 0x7f020010, None),
+    0x7f010000,
+    def,
+  )
+  assert_true(cycle.origin is Unresolved(_), msg="AttrCycle 降级")
+  // theme id 不在表中
+  let absent_theme = @axml.resolve_attr_value_with_theme(
+    ar_doc(),
+    table,
+    ar_attr(Attribute, 0x7f020001, None),
+    0x7f01FFFF,
+    def,
+  )
+  assert_true(absent_theme.origin is Unresolved(_), msg="theme 缺失降级")
+}
+
+///|
+/// T-W4-3：非 `?attr` 类型结果与旧 `resolve_attr_value` 逐字段一致。
+test "W4 theme: 非引用类型与旧函数一致" {
+  let table = mr_table()
+  let def = mr_default()
+  let cases : Array[(String, @axml.XmlAttribute)] = [
+    ("Reference 命中", ar_attr(Reference, 0x7f010000, None)),
+    ("Reference 未命中", ar_attr(Reference, 0x7f030000, None)),
+    ("动态引用", ar_attr(Unknown(7), 0x7f010000, None)),
+    ("布尔", ar_attr(IntBoolean, 1U, None)),
+    ("字符串", ar_attr(String, 0U, None)),
+    ("文本引用未命中", ar_attr(Null, 0U, Some("@string/missing"))),
+  ]
+  for c in cases {
+    let old = @axml.resolve_attr_value(ar_doc(), table, c.1)
+    let new = @axml.resolve_attr_value_with_theme(
+      ar_doc(),
+      table,
+      c.1,
+      0x7f010000,
+      def,
+    )
+    assert_eq(old.text, new.text, msg="\{c.0}: text 一致")
+    assert_eq(old.id, new.id, msg="\{c.0}: id 一致")
+    let old_u = old.origin is Unresolved(_)
+    let new_u = new.origin is Unresolved(_)
+    assert_eq(old_u, new_u, msg="\{c.0}: origin 类别一致")
+  }
+}
+
+///|
+/// W5 辅助：带 `RES_TABLE_LIBRARY_TYPE` 映射的合成表。
+/// 包 0x7f；类型 1 两个条目，值均为动态引用（运行时包字节 0x01 / 0x03）；
+/// libraries = [(1, "lib.foo"), (2, "lib.bar")]。
+fn mr_lib_table() -> @axml.ResTable {
+  let config = mr_default()
+  let entries : Array[@axml.ResEntry?] = [
+    Some(mr_simple(@axml.ResDataType::DynamicReference, 0x01010002)),
+    Some(mr_simple(@axml.ResDataType::DynamicReference, 0x03010002)),
+  ]
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "dyn",
+    type_id_offset: 0,
+    type_pool: mr_pool(["attr"]),
+    key_pool: mr_pool(["a1", "a2"]),
+    types: [
+      {
+        id: 1,
+        types_count: 1,
+        entry_count: 2,
+        spec_flags: [0x40000000U, 0x40000000U],
+        configs: [{ id: 1, flags: 0, config, entries, }],
+      },
+    ],
+    libraries: [
+      { package_id: 1, name: "lib.foo", },
+      { package_id: 2, name: "lib.bar", },
+    ],
+  }
+  { global_pool: mr_pool([]), packages: [pkg], package_count: 1, }
+}
+
+///|
+/// T-W5-1：library 命中/未命中两路径（`library_by_id` + `dynamic_ref_view`）。
+test "W5 dynamic: library 映射命中与未命中" {
+  let table = mr_lib_table()
+  match table.library_by_id(1) {
+    None => fail("library_by_id(1) 应命中")
+    Some(lib) => assert_eq(lib.name, "lib.foo", msg="命中名字")
+  }
+  assert_true(table.library_by_id(9) is None, msg="未命中返回 None")
+  let hit = table.dynamic_ref_view(0x01010002)
+  assert_eq(hit.origin_id, 0x01010002U, msg="保留原始 id")
+  assert_eq(hit.runtime_package_id, 1, msg="运行时包字节")
+  assert_eq(hit.library_name, Some("lib.foo"), msg="命中库名")
+  // 0x03 未登记 → library_name=None（值化降级，不报错）
+  let miss = table.dynamic_ref_view(0x03010002)
+  assert_eq(miss.runtime_package_id, 3, msg="未登记包字节")
+  assert_true(miss.library_name is None, msg="未命中库名 None")
+}
+
+///|
+/// T-W5-2：旧 API 对动态引用仍输出 `(dynamic)` / Unresolved，零变化。
+test "W5 dynamic: 旧 API 不改写动态引用" {
+  let table = mr_lib_table()
+  let fmt = @axml.ResTable::format_value(table, {
+    data_type: @axml.ResDataType::DynamicReference,
+    data: 0x01010002,
+  })
+  assert_eq(fmt, "@0x01010002 (dynamic)", msg="format_value 如实标注")
+  let r = @axml.resolve_attr_value(
+    ar_doc(),
+    table,
+    ar_attr(Unknown(7), 0x01010002, None),
+  )
+  assert_eq(r.text, "@0x01010002", msg="未命中表时保留原 id")
+  assert_true(r.origin is Unresolved(_), msg="origin 为 Unresolved")
+}

@@ -592,49 +592,74 @@ pub fn resolve_attr_value(
 /// 主题感知属性解析（W4）：与 `resolve_attr_value` 同构，但对 `?attr`（Attribute/
 /// DynamicAttribute）值沿 `theme_id` 指定的 theme bag 链求值（`eval_theme_attr`）。
 /// 其他类型（Reference、String、Literal 等）行为与 `resolve_attr_value` 完全相同。
-/// `theme_id` 不在表中/非 bag / parent 链成环 / attr 缺失 → 抛 `ArscError`；
-/// 调用方捕获后可退化为普通 `resolve_attr_value` 语义。
+/// 求值失败（theme 缺失/非 bag/parent 链成环/attr 缺失或成环）→ **捕获并降级**为
+/// `Unresolved(原因)`，保持不抛错契约（签名不含 `raise`）。
 pub fn resolve_attr_value_with_theme(
   doc : AxmlDoc,
   table : ResTable,
   attr : XmlAttribute,
   theme_id : UInt32,
   device : ResConfig,
-) -> ResolvedAttr raise ArscError {
+) -> ResolvedAttr {
   let dt = res_data_type_of_attr(attr.value_type, attr.raw_data)
   match dt {
     Attribute | DynamicAttribute => {
-      // —— 主题求值：沿 theme bag 链 ——
-      let final_value = table.eval_theme_attr(theme_id, attr.raw_data, device)
-      let final_id = final_value.data
-      match final_value.data_type {
-        Reference | DynamicReference =>
-          match table.lookup_with(final_id, device) {
-            Some(_) =>
-              {
-                text: if final_value.data_type is DynamicReference {
-                  "\{table.resolve_id(final_id)} (dynamic)"
-                } else {
-                  table.resolve_id(final_id)
-                },
-                id: Some(final_id),
-                origin: FromTheme,
-              }
-            None =>
-              {
-                text: "@0x\{hex8(final_id)}",
-                id: Some(final_id),
-                origin: Unresolved("theme 求值终点 id 不在表中"),
-              }
+      // —— 主题求值：沿 theme bag 链；失败降级 Unresolved（不抛错）——
+      let evaluated = Ok(table.eval_theme_attr(theme_id, attr.raw_data, device)) catch {
+        e => Err(e)
+      }
+      match evaluated {
+        Err(e) =>
+          {
+            text: "?0x\{hex8(attr.raw_data)}",
+            id: Some(attr.raw_data),
+            origin: Unresolved(theme_eval_reason(e)),
           }
-        _ => {
-          // 主题终点是字面量（颜色/int/bool 等）：格式化后作为 Literal 返回
-          let fmt = table.format_value(final_value)
-          { text: fmt, id: None, origin: FromTheme, }
+        Ok(final_value) => {
+          let final_id = final_value.data
+          match final_value.data_type {
+            Reference | DynamicReference =>
+              match table.lookup_with(final_id, device) {
+                Some(_) =>
+                  {
+                    text: if final_value.data_type is DynamicReference {
+                      "\{table.resolve_id(final_id)} (dynamic)"
+                    } else {
+                      table.resolve_id(final_id)
+                    },
+                    id: Some(final_id),
+                    origin: FromTheme,
+                  }
+                None =>
+                  {
+                    text: "@0x\{hex8(final_id)}",
+                    id: Some(final_id),
+                    origin: Unresolved("theme 求值终点 id 不在表中"),
+                  }
+              }
+            _ => {
+              // 主题终点是字面量（颜色/int/bool 等）：格式化后作为 Literal 返回
+              let fmt = table.format_value(final_value)
+              { text: fmt, id: None, origin: FromTheme, }
+            }
+          }
         }
       }
     }
     _ => resolve_attr_value(doc, table, attr)
+  }
+}
+
+///|
+/// 主题求值错误 → `Unresolved` 原因文本（保留错误类别与携带 id，便于定位）。
+fn theme_eval_reason(e : ArscError) -> String {
+  match e {
+    AttrMissing(id) => "theme 中缺失 attr 0x\{hex8(id)}"
+    AttrCycle(id) => "?attr 引用链成环（0x\{hex8(id)}）"
+    BagNotComplex(id) => "theme 不是复杂条目（0x\{hex8(id)}）"
+    BagMissingParent(id) => "theme parent 缺失（0x\{hex8(id)}）"
+    BagCycle(id) => "theme parent 链成环（0x\{hex8(id)}）"
+    _ => "主题求值失败"
   }
 }
 

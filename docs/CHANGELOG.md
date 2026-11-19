@@ -31,21 +31,23 @@
 - 新增 pub 声明：`ResConfig::from_qualifiers_ext(String) -> Self raise ArscError`（旧 `from_qualifiers` 语义冻结）
 - CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；有 `--config` 时取值走 `lookup_with`，未命中回退 `lookup`
 - 快照 diff：纯加法
-- 测试增量：无（T-W3-1~6 待补，见开发计划 §5 W3 验收项）
+- 测试增量：+2 执行用例（T-W3-1 ext 对旧子集 29 组 token 与旧函数逐字段一致；T-W3-2 新 token 解析 + 旧函数拒绝 5 组扩展 token）
+- CLI 实测：T-W3-3/4（带 `--config` 与基线输出逐字节一致——fixture 无多语言变体时正确回退）；T-W3-5（缺 `--resolve` → stderr 报错、退出码 2）
 
 ## W4 · 主题感知属性解析（2026-11-19）
 
-- 新增 pub 声明：`resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr raise ArscError`
+- 新增 pub 声明：`resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr`
 - 对 `?attr` 值沿 theme bag 链求值；求值失败（AttrMissing/AttrCycle/Bag*）降级为 `Unresolved(原因)`，保持不抛错契约
-- 快照 diff：纯加法
-- 测试增量：无（T-W4-1~5 待补，见开发计划 §5 W4 验收项）
+- 快照 diff：纯加法（W3–W5 补齐后唯一变更：`resolve_attr_value_with_theme` 去掉 `raise`，与计划 mbti 草案一致）
+- 测试增量：+3 执行用例（T-W4-1 链求值 → FromTheme；T-W4-2 AttrMissing/AttrCycle/theme 非 bag/theme 缺失四路降级 Unresolved；T-W4-3 非 `?attr` 六类与旧函数逐字段一致）
+- 实现对齐计划：`eval_theme_attr` 抛错全部捕获降级，函数不再抛错
 
 ## W5 · 动态引用映射视图（2026-11-19）
 
 - 新增 pub 声明：`ResTable::library_by_id(Self, Int32) -> ResLibrary?`、`ResTable::dynamic_ref_view(Self, UInt32) -> DynamicRefView`、`pub(all) struct DynamicRefView`
 - 只暴露 `RES_TABLE_LIBRARY_TYPE` 映射事实，不改写引用（旧 API 语义不变）
 - 快照 diff：纯加法
-- 测试增量：无（T-W5-1~3 待补，见开发计划 §5 W5 验收项）
+- 测试增量：+2 执行用例（T-W5-1 library 命中/未命中两路径；T-W5-2 旧 API 对动态引用仍输出 `(dynamic)`/Unresolved，零变化）
 
 ## W6 · 多表联合解析（2026-11-19）
 
