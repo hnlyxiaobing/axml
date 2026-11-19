@@ -72,3 +72,13 @@
 - 不做 arsc 写入、不做 XML 文本→AXML 编译；不保证与 aapt2 字节级一致
 - 快照 diff：纯加法（+1 pub fn）
 - 测试增量：+5 执行用例（T-W8-1：UTF-8 空文档往返 / UTF-16 空文档往返 / resource map 往返 / 二次往返幂等 / 节点显式拒绝）
+
+## W8 · AXML 格式级回编 M8-2（2026-11-19）
+
+- 新增 pub 声明：无（`encode` 语义扩展，签名不变）
+- 范围（M8-2）：元素/属性/CDATA 回编；START_ELEMENT 使用标准 attributeStart/attributeSize=20 布局，END_ELEMENT/CDATA 按解析侧固定布局重建
+- 保真字段：元素 line/ns/name、属性 ns/name/rawValue/`ValueType`（含 `Unknown`）/res0/raw_data/line、树结构（children/parent/roots）、CDATA 文本与行号
+- 不重建：namespace 声明 chunk（`AxmlDoc` 不保留前缀与声明位置，解析侧跳过，往返不受影响）
+- 显式拒绝（不静默丢信息）：样式块 → `VendorVariant`；节点引用字符串不在池中 → `BadStringPool`；越界/重复访问/未被引用的节点 → `InvalidNodeIndex`
+- 快照 diff：零变更（签名未变）
+- 测试增量：净 +5 执行用例（新增 6：UTF-8 golden 往返 / UTF-16 golden 往返 / 多根 + 顶层 CDATA / 属性元数据含 `Unknown` 类型 / 元素文档二次编码稳定 / 缺失池字符串拒绝；移除 M8-1 的「节点显式拒绝」1 项）

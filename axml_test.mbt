@@ -793,9 +793,222 @@ test "T-W8-1 encode output is stable under a second round-trip" {
 }
 
 ///|
-test "T-W8-1 encode rejects element nodes before M8-2" {
-  let e = encode_err(@axml.parse(golden_utf8()))
-  guard e is VendorVariant(_) else {
-    fail("expected VendorVariant for element nodes")
+test "T-W8-1 golden UTF-8 document round-trips through encode" {
+  let doc = @axml.parse(golden_utf8())
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(same_doc(doc, back), msg="document semantics preserved")
+}
+
+///|
+test "T-W8-1 golden UTF-16 document round-trips through encode" {
+  let doc = @axml.parse(golden_utf16())
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(same_doc(doc, back), msg="document semantics preserved")
+}
+
+///|
+test "T-W8-1 multiple roots and top-level CDATA round-trip" {
+  let src = xml_doc([
+    pool(
+      [utf8_entry(1, b"a"), utf8_entry(4, b"text"), utf8_entry(1, b"b")],
+      0x100,
+    ),
+    start_elem(-1, 0, []),
+    end_elem(-1, 0),
+    cdata(1),
+    start_elem(-1, 2, []),
+    end_elem(-1, 2),
+  ])
+  let doc = @axml.parse(src)
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(same_doc(doc, back), msg="multiple roots preserved")
+  assert_true(back.roots.length() == 3, msg="root list size")
+}
+
+///|
+test "T-W8-1 attribute metadata round-trips including Unknown types" {
+  let src = xml_doc([
+    pool(
+      [utf8_entry(4, b"root"), utf8_entry(4, b"attr"), utf8_entry(5, b"value")],
+      0x100,
+    ),
+    start_elem(-1, 0, [
+      cat([w4(-1), w4(1), w4(2), w2(8), one(7), one(0x1F), w4(-1)]),
+      attr(-1, 1, -1, 0x01, 0x7F010001),
+    ]),
+    end_elem(-1, 0),
+  ])
+  let doc = @axml.parse(src)
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(same_doc(doc, back), msg="attribute metadata preserved")
+  let attrs = back.elements().at(0).attrs()
+  assert_true(attrs.at(0).value_type is Unknown(0x1F), msg="unknown type")
+  assert_true(attrs.at(0).res0.to_int() == 7, msg="res0 preserved")
+  assert_true(attrs.at(0).raw_data == 0xFFFFFFFFU, msg="raw data preserved")
+}
+
+///|
+test "T-W8-1 encode is stable for a document with elements" {
+  let once = @axml.encode(@axml.parse(golden_utf8()))
+  let twice = @axml.encode(@axml.parse(once))
+  assert_true(once == twice, msg="second encode equals the first")
+}
+
+///|
+test "T-W8-1 encode rejects nodes whose strings are missing from the pool" {
+  let doc : @axml.AxmlDoc = {
+    pool: { encoding: Utf8, strings: [], styles: b"", },
+    nodes: [
+      {
+        line: 1,
+        ns: None,
+        name: "ghost",
+        attributes: [],
+        children: [],
+        parent: None,
+        chunk: StartElement,
+      },
+    ],
+    roots: [0],
+    resource_map: [],
   }
+  let e = encode_err(doc)
+  guard e is BadStringPool(_, _) else {
+    fail("expected BadStringPool for a missing node string")
+  }
+}
+
+///|
+/// 编码类型逐值比较（`StringEncoding` 未派生 Eq）。
+fn same_encoding(a : @axml.StringEncoding, b : @axml.StringEncoding) -> Bool {
+  match (a, b) {
+    (Utf8, Utf8) => true
+    (Utf16, Utf16) => true
+    _ => false
+  }
+}
+
+///|
+fn same_chunk(a : @axml.ChunkType, b : @axml.ChunkType) -> Bool {
+  match (a, b) {
+    (StringPool, StringPool) => true
+    (XmlTree, XmlTree) => true
+    (StartNamespace, StartNamespace) => true
+    (EndNamespace, EndNamespace) => true
+    (StartElement, StartElement) => true
+    (EndElement, EndElement) => true
+    (CData, CData) => true
+    (ResourceMap, ResourceMap) => true
+    _ => false
+  }
+}
+
+///|
+fn same_value_type(a : @axml.ValueType, b : @axml.ValueType) -> Bool {
+  match (a, b) {
+    (Null, Null) => true
+    (Reference, Reference) => true
+    (Attribute, Attribute) => true
+    (String, String) => true
+    (Float, Float) => true
+    (Dimension, Dimension) => true
+    (Fraction, Fraction) => true
+    (IntDec, IntDec) => true
+    (IntHex, IntHex) => true
+    (IntBoolean, IntBoolean) => true
+    (Unknown(x), Unknown(y)) => x == y
+    _ => false
+  }
+}
+
+///|
+fn same_opt_string(a : String?, b : String?) -> Bool {
+  match (a, b) {
+    (None, None) => true
+    (Some(x), Some(y)) => x == y
+    _ => false
+  }
+}
+
+///|
+fn same_opt_index(a : Int32?, b : Int32?) -> Bool {
+  match (a, b) {
+    (None, None) => true
+    (Some(x), Some(y)) => x == y
+    _ => false
+  }
+}
+
+///|
+/// 规范化比较：字符串池、resource map、根顺序、节点表与属性逐字段相等。
+fn same_doc(a : @axml.AxmlDoc, b : @axml.AxmlDoc) -> Bool {
+  if !same_encoding(a.pool.encoding, b.pool.encoding) {
+    return false
+  }
+  if a.pool.strings.length() != b.pool.strings.length() {
+    return false
+  }
+  for i in 0..<a.pool.strings.length() {
+    if a.pool.strings.at(i) != b.pool.strings.at(i) {
+      return false
+    }
+  }
+  if a.pool.styles.length() != b.pool.styles.length() {
+    return false
+  }
+  if a.resource_map.length() != b.resource_map.length() {
+    return false
+  }
+  for i in 0..<a.resource_map.length() {
+    if a.resource_map.at(i) != b.resource_map.at(i) {
+      return false
+    }
+  }
+  if a.roots.length() != b.roots.length() {
+    return false
+  }
+  for i in 0..<a.roots.length() {
+    if a.roots.at(i) != b.roots.at(i) {
+      return false
+    }
+  }
+  if a.nodes.length() != b.nodes.length() {
+    return false
+  }
+  for i in 0..<a.nodes.length() {
+    let x = a.nodes.at(i)
+    let y = b.nodes.at(i)
+    if x.line != y.line ||
+      x.name != y.name ||
+      !same_opt_string(x.ns, y.ns) ||
+      !same_chunk(x.chunk, y.chunk) ||
+      !same_opt_index(x.parent, y.parent) {
+      return false
+    }
+    if x.children.length() != y.children.length() {
+      return false
+    }
+    for j in 0..<x.children.length() {
+      if x.children.at(j) != y.children.at(j) {
+        return false
+      }
+    }
+    if x.attributes.length() != y.attributes.length() {
+      return false
+    }
+    for j in 0..<x.attributes.length() {
+      let p = x.attributes.at(j)
+      let q = y.attributes.at(j)
+      if p.name != q.name ||
+        !same_opt_string(p.ns, q.ns) ||
+        !same_opt_string(p.raw_value, q.raw_value) ||
+        !same_value_type(p.value_type, q.value_type) ||
+        p.res0 != q.res0 ||
+        p.raw_data != q.raw_data ||
+        p.line != q.line {
+        return false
+      }
+    }
+  }
+  true
 }
