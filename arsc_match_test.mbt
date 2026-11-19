@@ -777,3 +777,167 @@ test "W5 dynamic: 旧 API 不改写动态引用" {
   assert_eq(r.text, "@0x01010002", msg="未命中表时保留原 id")
   assert_true(r.origin is Unresolved(_), msg="origin 为 Unresolved")
 }
+
+///|
+/// W3 辅助：双配置合成表。string/app_name（0x7f010000）：
+/// 默认配置 "Fx Multidex" + zh 配置 "Fx 多维"（fx-multidex 真实样本同构）。
+fn mc_table() -> @axml.ResTable {
+  let default_cfg = mr_default()
+  let zh_cfg = @axml.ResConfig::from_qualifiers("zh") catch {
+    _ => abort("zh config")
+  }
+  let app_name : UInt32 = 0U
+  let default_entry : @axml.ResEntry = {
+    key: 0,
+    key_name: "app_name",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::String,
+      data: app_name,
+    }),
+  }
+  let zh_entry : @axml.ResEntry = {
+    key: 0,
+    key_name: "app_name",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::String,
+      data: 1U,
+    }),
+  }
+  let spec : @axml.ResTypeSpec = {
+    id: 1,
+    types_count: 2,
+    entry_count: 1,
+    spec_flags: [0x40000000U],
+    configs: [
+      { id: 1, flags: 0, config: default_cfg, entries: [Some(default_entry)], },
+      { id: 1, flags: 0, config: zh_cfg, entries: [Some(zh_entry)], },
+    ],
+  }
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "com.fx.multidex",
+    type_id_offset: 0,
+    type_pool: mr_pool(["string"]),
+    key_pool: mr_pool(["app_name"]),
+    types: [spec],
+    libraries: [],
+  }
+  {
+    global_pool: mr_pool(["Fx Multidex", "Fx 多维"]),
+    packages: [pkg],
+    package_count: 1,
+  }
+}
+
+///|
+/// T-W3-3（库层）：带设备配置取值——zh 设备取 zh 值；en 设备回退默认；
+/// 空设备配置等同默认；旧 `resolve_attr_value` 语义冻结仍默认优先；
+/// 文本引用形式 `@string/app_name` 同样按配置选值；未命中 id 降级 Unresolved。
+test "W3 config: resolve_attr_value_with_config 按设备配置选值" {
+  let table = mc_table()
+  let doc = ar_doc()
+  let ref_attr = ar_attr(Reference, 0x7f010000, None)
+  // —— 旧函数语义冻结：默认配置优先 ——
+  let old = @axml.resolve_attr_value(doc, table, ref_attr)
+  assert_eq(old.text, "Fx Multidex", msg="旧函数仍默认优先")
+  assert_true(old.origin is FromId, msg="旧函数 origin 不变")
+  // —— zh 设备：命中 zh 配置 ——
+  let zh = @axml.ResConfig::from_qualifiers("zh") catch { _ => abort("zh") }
+  let rz = @axml.resolve_attr_value_with_config(doc, table, ref_attr, zh)
+  assert_eq(rz.text, "Fx 多维", msg="zh 设备取 zh 值")
+  assert_true(rz.origin is FromId, msg="origin 为 FromId")
+  assert_eq(rz.id, Some(0x7f010000U), msg="保留引用 id")
+  // —— en 设备：zh 不匹配 en，回退默认配置 ——
+  let en = @axml.ResConfig::from_qualifiers("en") catch { _ => abort("en") }
+  let re = @axml.resolve_attr_value_with_config(doc, table, ref_attr, en)
+  assert_eq(re.text, "Fx Multidex", msg="en 设备回退默认值")
+  // —— 空设备配置：等同默认 ——
+  let empty = mr_default()
+  let r0 = @axml.resolve_attr_value_with_config(doc, table, ref_attr, empty)
+  assert_eq(r0.text, "Fx Multidex", msg="空设备配置等同默认")
+  // —— 文本引用形式 raw_value：按配置选值 ——
+  let txt = ar_attr(String, 0U, Some("@string/app_name"))
+  let rt = @axml.resolve_attr_value_with_config(doc, table, txt, zh)
+  assert_eq(rt.text, "Fx 多维", msg="文本引用按配置选值")
+  assert_true(rt.origin is FromName, msg="文本引用 origin 为 FromName")
+  let rt_old = @axml.resolve_attr_value(doc, table, txt)
+  assert_eq(
+    rt_old.text,
+    "Fx Multidex",
+    msg="文本引用旧函数仍默认优先",
+  )
+  // —— 未命中 id：Unresolved ——
+  let miss = ar_attr(Reference, 0x7f010099, None)
+  let rm = @axml.resolve_attr_value_with_config(doc, table, miss, zh)
+  assert_true(rm.origin is Unresolved(_), msg="未命中 id 降级 Unresolved")
+  assert_eq(rm.text, "@0x7f010099", msg="未命中保留原 id 文本")
+}
+
+///|
+/// T-W3-3（lookup 层）：`lookup_best` 策略——`lookup_with` 命中优先，
+/// 未命中回退 `lookup`（默认优先）；仅有 zh 配置（无默认）时 zh 设备命中 zh、
+/// en 设备回退 chunk 顺序首个命中。
+test "W3 config: lookup_with 命中优先 / 回退默认" {
+  let table = mc_table()
+  let zh = @axml.ResConfig::from_qualifiers("zh") catch { _ => abort("zh") }
+  let en = @axml.ResConfig::from_qualifiers("en") catch { _ => abort("en") }
+  // zh 设备：lookup_with 直接命中 zh 配置
+  match table.lookup_with(0x7f010000U, zh) {
+    None => fail("lookup_with 应命中 zh 配置")
+    Some(hit) =>
+      assert_true(hit.config.language == "zh", msg="命中 zh 配置")
+  }
+  // en 设备：lookup_with 无匹配（zh 不匹配、默认配置在 lookup_with 中仍匹配）
+  // —— 注意：默认配置 matches 任意设备，故 en 设备经 lookup_with 命中默认配置
+  match table.lookup_with(0x7f010000U, en) {
+    None => fail("默认配置应匹配任意设备")
+    Some(hit) =>
+      assert_true(hit.config.is_default(), msg="en 设备命中默认配置")
+  }
+  // 仅 zh 配置的表：en 设备 lookup_with 未命中 -> lookup_best 回退 lookup
+  let zh_only_cfg = @axml.ResConfig::from_qualifiers("zh") catch {
+    _ => abort("zh")
+  }
+  let zh_only_entry : @axml.ResEntry = {
+    key: 0,
+    key_name: "solo",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::IntDec,
+      data: 42U,
+    }),
+  }
+  let spec : @axml.ResTypeSpec = {
+    id: 1,
+    types_count: 1,
+    entry_count: 1,
+    spec_flags: [0x40000000U],
+    configs: [
+      { id: 1, flags: 0, config: zh_only_cfg, entries: [Some(zh_only_entry)], },
+    ],
+  }
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "solo",
+    type_id_offset: 0,
+    type_pool: mr_pool(["string"]),
+    key_pool: mr_pool(["solo"]),
+    types: [spec],
+    libraries: [],
+  }
+  let zh_only : @axml.ResTable = {
+    global_pool: mr_pool([]),
+    packages: [pkg],
+    package_count: 1,
+  }
+  match zh_only.lookup_with(0x7f010000U, en) {
+    Some(_) => fail("仅 zh 配置不应匹配 en 设备")
+    None => ()
+  }
+  match zh_only.lookup(0x7f010000U) {
+    None => fail("lookup 应按 chunk 顺序命中")
+    Some(_) => ()
+  }
+}

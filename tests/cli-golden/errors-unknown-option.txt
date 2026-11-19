@@ -1,0 +1,4 @@
+== errors-unknown-option ==
+exit|2
+err|error: 未知选项：--bogus
+err|用法: axml-cli dump <apk|axml文件> [--view tree|sem|pool] [--entry <name>] [--json]

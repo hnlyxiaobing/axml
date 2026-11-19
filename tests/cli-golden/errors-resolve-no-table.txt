@@ -1,0 +1,3 @@
+== errors-resolve-no-table ==
+exit|2
+err|error: --resolve 需要资源表：请加 --arsc <file> 或使用含 resources.arsc 的 APK

@@ -1,0 +1,10 @@
+== views-sem ==
+exit|0
+out|SEM|package|com.example.app
+out|SEM|versionCode|1
+out|SEM|versionName|1.0
+out|SEM|minSdk|21
+out|SEM|targetSdk|30
+out|SEM|label|MyApp
+out|SEM|activity|com.example.app.MainActivity
+out|SEM|permission|android.permission.INTERNET

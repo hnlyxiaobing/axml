@@ -99,9 +99,12 @@ fn int_dec(v : UInt32) -> String {
 
 ///|
 /// 资源引用解析上下文：`--resolve` 开启时把 Reference/Attribute 属性解析为人类可读值；
-/// `dev_config`（来自 `--config`）仅用于名字级回退 `resolve_res_ref` 的 `lookup_with`；
-/// 引用取值主路径 `resolve_attr_value` 仍走默认配置优先的 `lookup`（见 docs/API.md D15）。
-struct RefCtx {
+/// `dev_config`（来自 `--config`）提供时取值主路径走
+/// `resolve_attr_value_with_config`（qualifier 最优匹配，未命中回退默认配置），
+/// 名字级回退 `resolve_res_ref` 同样走 `lookup_with`；
+/// 未提供时取值主路径走 `resolve_attr_value`（默认配置优先，既有输出逐字节不变，
+/// 见 docs/API.md D15）。
+priv struct RefCtx {
   doc : @axml.AxmlDoc
   table : @axml.ResTable?
   resolve : Bool
@@ -149,7 +152,10 @@ fn resolve_res_ref(
 fn resolve_attr(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
   match ctx.table {
     Some(t) => {
-      let r = @axml.resolve_attr_value(ctx.doc, t, a)
+      let r = match ctx.dev_config {
+        Some(cfg) => @axml.resolve_attr_value_with_config(ctx.doc, t, a, cfg)
+        None => @axml.resolve_attr_value(ctx.doc, t, a)
+      }
       match r.origin {
         Unresolved(_) =>
           if r.text.has_prefix("@0x") {

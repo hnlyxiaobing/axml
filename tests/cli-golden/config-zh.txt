@@ -1,0 +1,4 @@
+== config-zh ==
+exit|0
+out|EL|0||manifest
+out|AT|0|manifest||label|Fx 多维

@@ -1,0 +1,3 @@
+== apk-missing-entry ==
+exit|1
+err|error: APK 中找不到条目：nope.xml

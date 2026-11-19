@@ -1,0 +1,15 @@
+import {
+  "hnlyxiaobing/axml",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/compress/flate",
+}
+
+import {
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
+  "moonbitlang/core/encoding/utf8",
+} for "test"
+
+options(
+  "allow-experimental-packages": true,
+)

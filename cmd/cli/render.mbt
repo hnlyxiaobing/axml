@@ -5,7 +5,7 @@
 
 ///|
 /// manifest 语义字段集合（sem 视图）。
-struct SemInfo {
+priv struct SemInfo {
   pkg_name : String
   version_code : String
   version_name : String

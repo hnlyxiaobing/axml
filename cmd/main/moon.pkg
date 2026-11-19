@@ -1,8 +1,6 @@
 import {
-  "hnlyxiaobing/axml",
+  "hnlyxiaobing/axml/cmd/cli",
   "moonbitlang/core/async",
-  "moonbitlang/core/async/fs",
-  "moonbitlang/core/compress/flate",
   "moonbitlang/core/env",
 }
 

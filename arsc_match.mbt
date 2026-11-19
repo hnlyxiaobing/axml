@@ -722,6 +722,158 @@ pub fn ResTable::flatten_bag(
 }
 
 ///|
+/// 带设备配置的取值查找：`lookup_with`（qualifier 最优匹配）命中优先；
+/// 未命中回退 `lookup`（默认配置优先）；再未命中返回 `None`（上层报 Unresolved）。
+fn ResTable::lookup_best(
+  self : ResTable,
+  id : UInt32,
+  device : ResConfig,
+) -> ResLookup? {
+  match self.lookup_with(id, device) {
+    Some(hit) => Some(hit)
+    None => self.lookup(id)
+  }
+}
+
+///|
+/// 带深度的引用解析（配置感知版）：与 `resolve_id_depth` 同构，但每级查找
+/// 使用 `lookup_best`（`lookup_with` 命中优先，回退默认配置优先）。
+fn ResTable::resolve_id_with_config_depth(
+  self : ResTable,
+  id : UInt32,
+  device : ResConfig,
+  depth : Int32,
+) -> String {
+  if depth > 16 {
+    return "@0x\{hex8(id)} (too deep)"
+  }
+  match self.lookup_best(id, device) {
+    None => "@0x\{hex8(id)}"
+    Some(hit) =>
+      match hit.entry.value {
+        Simple(v) =>
+          match v.data_type {
+            Reference =>
+              if v.data == id {
+                "@0x\{hex8(id)} (self reference)"
+              } else {
+                self.resolve_id_with_config_depth(v.data, device, depth + 1)
+              }
+            DynamicReference =>
+              "\{self.resolve_id_with_config_depth(v.data, device, depth + 1)} (dynamic)"
+            _ => self.format_value(v)
+          }
+        Complex(_) => "@\{hit.type_name}/\{hit.entry_name}"
+      }
+  }
+}
+
+///|
+/// `raw_value` 文本引用解析（配置感知版）：`@0x%08x` / `@type/name` 命中后
+/// 按 `lookup_best` 取值渲染；输入不是引用形式返回 `None`（与 `try_resolve_raw_ref`
+/// 同构，仅查找策略不同）。
+fn try_resolve_raw_ref_with_config(
+  table : ResTable,
+  raw : String,
+  device : ResConfig,
+) -> ResolvedAttr? {
+  if raw.has_prefix("@0x") || raw.has_prefix("@0X") {
+    match parse_hex_id(raw[3:].to_owned()) {
+      Some(id) =>
+        match table.lookup_best(id, device) {
+          Some(_) =>
+            Some({
+              text: table.resolve_id_with_config_depth(id, device, 0),
+              id: Some(id),
+              origin: FromId,
+            })
+          None =>
+            Some({
+              text: "@0x\{hex8(id)}",
+              id: Some(id),
+              origin: Unresolved("资源 id 不在表中"),
+            })
+        }
+      None => None
+    }
+  } else if raw.has_prefix("@") {
+    match parse_ref_name(raw[1:].to_owned()) {
+      Some((type_name, entry_name)) =>
+        match table.find_id(type_name, entry_name) {
+          Some(id) =>
+            Some({
+              text: table.resolve_id_with_config_depth(id, device, 0),
+              id: Some(id),
+              origin: FromName,
+            })
+          None =>
+            Some({
+              text: raw,
+              id: None,
+              origin: Unresolved("表中无该名字的资源"),
+            })
+        }
+      None => None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+/// 带设备配置的属性值解析（W3 修复）：与 `resolve_attr_value` 同构，但引用取值
+/// 主路径改走 `lookup_best`——`lookup_with(id, device)`（qualifier 最优匹配）
+/// 命中优先，未命中回退 `lookup`（默认配置优先），再未命中 `Unresolved`。
+/// 非 `--config` 场景请继续使用 `resolve_attr_value`（既有语义冻结不变）。
+/// 字面量路径（String/数值等）与配置无关，行为同 `resolve_attr_value`。
+pub fn resolve_attr_value_with_config(
+  doc : AxmlDoc,
+  table : ResTable,
+  attr : XmlAttribute,
+  device : ResConfig,
+) -> ResolvedAttr {
+  let dt = res_data_type_of_attr(attr.value_type, attr.raw_data)
+  match dt {
+    Reference | Attribute | DynamicReference | DynamicAttribute => {
+      let id = attr.raw_data
+      match table.lookup_best(id, device) {
+        Some(_) =>
+          {
+            text: if dt is DynamicReference || dt is DynamicAttribute {
+              "\{table.resolve_id_with_config_depth(id, device, 0)} (dynamic)"
+            } else {
+              table.resolve_id_with_config_depth(id, device, 0)
+            },
+            id: Some(id),
+            origin: if dt is DynamicReference || dt is DynamicAttribute {
+              Unresolved(
+                "动态引用未改写（RES_TABLE_LIBRARY_TYPE 映射不生效）",
+              )
+            } else {
+              FromId
+            },
+          }
+        None =>
+          {
+            text: "@0x\{hex8(id)}",
+            id: Some(id),
+            origin: Unresolved("资源 id 不在表中"),
+          }
+      }
+    }
+    _ =>
+      match attr.raw_value {
+        Some(raw) =>
+          match try_resolve_raw_ref_with_config(table, raw, device) {
+            Some(hit) => hit
+            None => resolve_attr_literal(doc, table, attr, dt)
+          }
+        None => resolve_attr_literal(doc, table, attr, dt)
+      }
+  }
+}
+
+///|
 /// 求值主题里的 `?attr` 引用：在压平后的 theme bag 中找 `attr_id`，
 /// 若其值是 `Attribute`/`DynamicAttribute`（即 `?attr/…`）则沿链继续；
 /// 普通 `Reference`（`@…`）视为终点返回值。

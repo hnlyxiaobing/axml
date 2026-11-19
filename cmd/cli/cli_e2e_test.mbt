@@ -1,7 +1,7 @@
 ///|
 /// L4：CLI 场景 E2E（axml-cli，原生 `moon test` 承载）。
 ///
-/// 通过公开入口 `@main.cli_run`（内存字节输入 + 捕获 stdout/stderr + 退出码）逐例断言
+/// 通过公开入口 `@cli.cli_run`（内存字节输入 + 捕获 stdout/stderr + 退出码）逐例断言
 /// CLI 对外契约（B13/A5 冻结）：
 /// - 退出码 0=成功 / 1=解析或IO错误 / 2=用法错误；
 /// - 记录行前缀仅 EL| / AT| / SEM| / POOL| / STR|；
@@ -309,7 +309,7 @@ fn e2e_zip(entries : Array[(String, Bytes)]) -> Bytes {
 
 ///|
 /// helper：stderr 行拼接（断言消息用）。
-fn join_err(r : @main.CliResult) -> String {
+fn join_err(r : @cli.CliResult) -> String {
   let mut s = ""
   let mut first = true
   for l in r.err {
@@ -341,7 +341,7 @@ fn debug_args(args : Array[String]) -> String {
 /// L4-1：正常 dump（tree 视图）退出码 0，记录行逐字节冻结。
 test "L4 exit 0: tree dump record lines frozen" {
   let input = @axml.encode(e2e_simple_doc())
-  let r = @main.cli_run(["axml-cli", "dump", "app.axml"], input, None)
+  let r = @cli.cli_run(["axml-cli", "dump", "app.axml"], input, None)
   assert_eq(r.code, 0, msg="tree dump exit 0 (err=\{join_err(r)})")
   assert_eq(
     r.out,
@@ -355,7 +355,7 @@ test "L4 exit 0: tree dump record lines frozen" {
 /// L4-1：pool 视图退出码 0，POOL/STR 记录行逐字节冻结。
 test "L4 exit 0: pool view record lines frozen" {
   let input = @axml.encode(e2e_simple_doc())
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     ["axml-cli", "dump", "app.axml", "--view", "pool"],
     input,
     None,
@@ -372,7 +372,7 @@ test "L4 exit 0: pool view record lines frozen" {
 /// L4-1：sem 视图退出码 0，SEM 记录行逐字节冻结（全字段）。
 test "L4 exit 0: sem view record lines frozen" {
   let input = @axml.encode(e2e_rich_doc())
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     ["axml-cli", "dump", "app.axml", "--view", "sem"],
     input,
     None,
@@ -393,7 +393,7 @@ test "L4 exit 0: sem view record lines frozen" {
 /// L4-1：--json 输出单行 JSON 到 stdout，退出码 0。
 test "L4 exit 0: json output single line" {
   let input = @axml.encode(e2e_simple_doc())
-  let r = @main.cli_run(["axml-cli", "dump", "app.axml", "--json"], input, None)
+  let r = @cli.cli_run(["axml-cli", "dump", "app.axml", "--json"], input, None)
   assert_eq(r.code, 0, msg="json dump exit 0")
   assert_eq(r.out.length(), 1, msg="json is single line")
   let line = r.out.at(0)
@@ -405,7 +405,7 @@ test "L4 exit 0: json output single line" {
 ///|
 /// L4 退出码 1：解析错误（非法 AXML 字节）。
 test "L4 exit 1: parse error" {
-  let r = @main.cli_run(["axml-cli", "dump", "bad.axml"], b"not-an-axml", None)
+  let r = @cli.cli_run(["axml-cli", "dump", "bad.axml"], b"not-an-axml", None)
   assert_eq(r.code, 1, msg="parse error exit 1")
   assert_true(r.out.is_empty(), msg="parse error writes nothing to stdout")
   assert_true(r.err.length() >= 1, msg="parse error writes to stderr")
@@ -437,7 +437,7 @@ test "L4 exit 2: usage error matrix" {
     (["axml-cli", "dump", "x.axml", "--resolve"], "需要资源表"),
   ]
   for (args, expect) in cases {
-    let r = @main.cli_run(args, input, None)
+    let r = @cli.cli_run(args, input, None)
     assert_eq(r.code, 2, msg="args \{debug_args(args)} -> exit 2")
     assert_true(r.out.is_empty(), msg="usage error stdout empty")
     assert_true(
@@ -450,13 +450,13 @@ test "L4 exit 2: usage error matrix" {
 ///|
 /// L4：缺子命令/未知子命令在无输入字节时同样退出码 2。
 test "L4 exit 2: usage errors without input bytes" {
-  let c1 = @main.cli_run(["axml-cli"], b"", None)
+  let c1 = @cli.cli_run(["axml-cli"], b"", None)
   assert_eq(c1.code, 2, msg="no subcommand -> 2")
   assert_true(
     c1.err.at(0).contains("缺少子命令"),
     msg="missing subcommand text",
   )
-  let c2 = @main.cli_run(["axml-cli", "bogus"], b"", None)
+  let c2 = @cli.cli_run(["axml-cli", "bogus"], b"", None)
   assert_eq(c2.code, 2, msg="unknown subcommand -> 2")
   assert_true(
     c2.err.at(0).contains("未知子命令"),
@@ -468,14 +468,14 @@ test "L4 exit 2: usage errors without input bytes" {
 /// L4：`dump --help` 与 `--help` 子命令均输出用法到 stdout，退出码 0（契约冻结）。
 test "L4 exit 0: dump --help and top-level help" {
   let input = @axml.encode(e2e_simple_doc())
-  let h1 = @main.cli_run(["axml-cli", "dump", "--help"], input, None)
+  let h1 = @cli.cli_run(["axml-cli", "dump", "--help"], input, None)
   assert_eq(h1.code, 0, msg="dump --help exit 0")
   assert_true(h1.err.is_empty(), msg="help writes nothing to stderr")
   assert_true(
     h1.out.length() >= 1 && h1.out.at(0).contains("用法"),
     msg="dump --help prints usage",
   )
-  let h2 = @main.cli_run(["axml-cli", "--help"], input, None)
+  let h2 = @cli.cli_run(["axml-cli", "--help"], input, None)
   assert_eq(h2.code, 0, msg="top-level --help exit 0")
   assert_true(
     h2.out.length() >= 1 && h2.out.at(0).contains("用法"),
@@ -489,8 +489,8 @@ test "L4 exit 0: dump --help and top-level help" {
 test "L4 apk direct read equals raw dump" {
   let axml_bytes = @axml.encode(e2e_simple_doc())
   let apk = e2e_zip([("AndroidManifest.xml", axml_bytes)])
-  let raw = @main.cli_run(["axml-cli", "dump", "app.axml"], axml_bytes, None)
-  let via_apk = @main.cli_run(["axml-cli", "dump", "app.apk"], apk, None)
+  let raw = @cli.cli_run(["axml-cli", "dump", "app.axml"], axml_bytes, None)
+  let via_apk = @cli.cli_run(["axml-cli", "dump", "app.apk"], apk, None)
   assert_eq(via_apk.code, 0, msg="apk dump exit 0 (err=\{join_err(via_apk)})")
   assert_eq(via_apk.out, raw.out, msg="apk dump output equals raw dump")
 }
@@ -500,7 +500,7 @@ test "L4 apk direct read equals raw dump" {
 test "L4 apk with explicit --entry" {
   let axml_bytes = @axml.encode(e2e_simple_doc())
   let apk = e2e_zip([("AndroidManifest.xml", axml_bytes)])
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     ["axml-cli", "dump", "app.apk", "--entry", "AndroidManifest.xml"],
     apk,
     None,
@@ -514,7 +514,7 @@ test "L4 apk with explicit --entry" {
 test "L4 apk missing entry exit 1" {
   let axml_bytes = @axml.encode(e2e_simple_doc())
   let apk = e2e_zip([("AndroidManifest.xml", axml_bytes)])
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     ["axml-cli", "dump", "app.apk", "--entry", "nope.xml"],
     apk,
     None,
@@ -530,11 +530,7 @@ test "L4 apk missing entry exit 1" {
 /// L4：--resolve 无表 -> 退出码 2（需要资源表）。
 test "L4 resolve without table exit 2" {
   let input = @axml.encode(e2e_ref_doc())
-  let r = @main.cli_run(
-    ["axml-cli", "dump", "x.axml", "--resolve"],
-    input,
-    None,
-  )
+  let r = @cli.cli_run(["axml-cli", "dump", "x.axml", "--resolve"], input, None)
   assert_eq(r.code, 2, msg="resolve without table exit 2")
   assert_true(
     r.err.at(0).contains("需要资源表"),
@@ -547,7 +543,7 @@ test "L4 resolve without table exit 2" {
 test "L4 resolve with table resolves reference" {
   let input = @axml.encode(e2e_ref_doc())
   let arsc = @axml.encode_arsc(e2e_res_table())
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     ["axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc"],
     input,
     Some(arsc),
@@ -565,7 +561,7 @@ test "L4 resolve with table resolves reference" {
 test "L4 config with resolve wired" {
   let input = @axml.encode(e2e_ref_doc())
   let arsc = @axml.encode_arsc(e2e_res_table())
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     [
       "axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc", "--config",
       "zh-rCN",
@@ -581,10 +577,131 @@ test "L4 config with resolve wired" {
 }
 
 ///|
+/// 双配置合成表（T-W3-3 L4）：string/app_name 默认 "Fx Multidex" + zh "Fx 多维"
+/// （与真实样本 fx-multidex.resources.arsc 同构；配置经 `from_qualifiers` 构造，
+/// W9 修复后可直接回编）。
+fn e2e_dual_config_table() -> @axml.ResTable {
+  let def = @axml.ResConfig::from_qualifiers("") catch {
+    _ => abort("default config")
+  }
+  let zh = @axml.ResConfig::from_qualifiers("zh") catch {
+    _ => abort("zh config")
+  }
+  let entry_def : @axml.ResEntry = {
+    key: 0,
+    key_name: "app_name",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::String,
+      data: 0U,
+    }),
+  }
+  let entry_zh : @axml.ResEntry = {
+    key: 0,
+    key_name: "app_name",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::String,
+      data: 1U,
+    }),
+  }
+  let spec : @axml.ResTypeSpec = {
+    id: 1,
+    types_count: 2,
+    entry_count: 1,
+    spec_flags: [0x40000000U],
+    configs: [
+      { id: 1, flags: 0, config: def, entries: [Some(entry_def)], },
+      { id: 1, flags: 0, config: zh, entries: [Some(entry_zh)], },
+    ],
+  }
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "com.fx.multidex",
+    type_id_offset: 0,
+    type_pool: e2e_pool(["string"]),
+    key_pool: e2e_pool(["app_name"]),
+    types: [spec],
+    libraries: [],
+  }
+  {
+    global_pool: e2e_pool(["Fx Multidex", "Fx 多维"]),
+    packages: [pkg],
+    package_count: 1,
+  }
+}
+
+///|
+/// T-W3-3（L4）：双配置表按 `--config` 选值——zh 取 "Fx 多维"；
+/// 无 `--config` 走旧路径输出默认值（既有输出逐字节不变）；
+/// `--config en` 与 `--config ""`（空设备配置）均回退默认值。
+test "L4 config selects value by device qualifiers" {
+  let input = @axml.encode(e2e_ref_doc())
+  let arsc = @axml.encode_arsc(e2e_dual_config_table())
+  // —— --config zh：zh 配置命中 ——
+  let rz = @cli.cli_run(
+    [
+      "axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc", "--config",
+      "zh",
+    ],
+    input,
+    Some(arsc),
+  )
+  assert_eq(rz.code, 0, msg="--config zh exit 0 (err=\{join_err(rz)})")
+  assert_eq(
+    rz.out,
+    ["EL|0||manifest", "AT|0|manifest||label|Fx 多维"],
+    msg="--config zh 输出 zh 值",
+  )
+  // —— 无 --config：旧路径默认优先，输出不变 ——
+  let rnone = @cli.cli_run(
+    ["axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc"],
+    input,
+    Some(arsc),
+  )
+  assert_eq(rnone.code, 0, msg="no config exit 0")
+  assert_eq(
+    rnone.out,
+    ["EL|0||manifest", "AT|0|manifest||label|Fx Multidex"],
+    msg="无 --config 输出默认值",
+  )
+  // —— --config en：zh 不匹配 en，回退默认 ——
+  let ren = @cli.cli_run(
+    [
+      "axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc", "--config",
+      "en",
+    ],
+    input,
+    Some(arsc),
+  )
+  assert_eq(ren.code, 0, msg="--config en exit 0")
+  assert_eq(
+    ren.out,
+    ["EL|0||manifest", "AT|0|manifest||label|Fx Multidex"],
+    msg="--config en 回退默认值",
+  )
+  // —— --config ""：空设备配置等同默认 ——
+  let rempty = @cli.cli_run(
+    [
+      "axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc", "--config",
+      "",
+    ],
+    input,
+    Some(arsc),
+  )
+  assert_eq(rempty.code, 0, msg="--config '' exit 0")
+  assert_eq(
+    rempty.out,
+    ["EL|0||manifest", "AT|0|manifest||label|Fx Multidex"],
+    msg="--config '' 等同默认",
+  )
+}
+
+///|
 /// L4：无新选项冻结——未知选项被拒为退出码 2。
 test "L4 unknown option rejected (no-new-option freeze)" {
   let input = @axml.encode(e2e_simple_doc())
-  let r = @main.cli_run(["axml-cli", "dump", "x.axml", "--bogus"], input, None)
+  let r = @cli.cli_run(["axml-cli", "dump", "x.axml", "--bogus"], input, None)
   assert_eq(r.code, 2, msg="unknown option exit 2")
   assert_true(
     r.err.at(0).contains("未知选项"),
@@ -597,7 +714,7 @@ test "L4 unknown option rejected (no-new-option freeze)" {
 test "L4 invalid config qualifier exit 1" {
   let input = @axml.encode(e2e_ref_doc())
   let arsc = @axml.encode_arsc(e2e_res_table())
-  let r = @main.cli_run(
+  let r = @cli.cli_run(
     [
       "axml-cli", "dump", "x.axml", "--resolve", "--arsc", "r.arsc", "--config",
       "watch-xylophone",
@@ -613,7 +730,7 @@ test "L4 invalid config qualifier exit 1" {
 /// L4：截断的 ZIP -> 退出码 1（zip 结构错误经汇输出）。
 test "L4 truncated zip exit 1" {
   let bad = b"PK\x03\x04short"
-  let r = @main.cli_run(["axml-cli", "dump", "bad.apk"], bad, None)
+  let r = @cli.cli_run(["axml-cli", "dump", "bad.apk"], bad, None)
   assert_eq(r.code, 1, msg="truncated zip exit 1")
   assert_true(r.err.length() >= 1, msg="truncated zip writes stderr")
 }

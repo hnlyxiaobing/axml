@@ -1,0 +1,4 @@
+== errors-missing-subcommand ==
+exit|2
+err|error: 缺少子命令（dump）
+err|运行 axml-cli --help 查看用法

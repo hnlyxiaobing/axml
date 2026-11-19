@@ -1,0 +1,3 @@
+== views-json-pool ==
+exit|0
+out|{"tool":"axml-cli","file":"x.axml","view":"pool","count":25,"strings":["manifest","package","com.example.app","versionCode","1","versionName","1.0","uses-sdk","minSdkVersion","21","targetSdkVersion","30","application","label","MyApp","uses-permission","name","android.permission.INTERNET","activity",".MainActivity","intent-filter","action","android.intent.action.MAIN","category","android.intent.category.LAUNCHER"]}

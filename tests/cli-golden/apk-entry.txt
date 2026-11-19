@@ -1,0 +1,20 @@
+== apk-entry ==
+exit|0
+out|EL|0||manifest
+out|AT|0|manifest||package|com.example.app
+out|AT|0|manifest||versionCode|1
+out|AT|0|manifest||versionName|1.0
+out|EL|1||uses-sdk
+out|AT|1|uses-sdk||minSdkVersion|21
+out|AT|1|uses-sdk||targetSdkVersion|30
+out|EL|1||application
+out|AT|1|application||label|MyApp
+out|EL|1||uses-permission
+out|AT|1|uses-permission||name|android.permission.INTERNET
+out|EL|1||activity
+out|AT|1|activity||name|.MainActivity
+out|EL|2||intent-filter
+out|EL|3||action
+out|AT|3|action||name|android.intent.action.MAIN
+out|EL|3||category
+out|AT|3|category||name|android.intent.category.LAUNCHER

@@ -19,8 +19,8 @@
 | D11 | overlay/idmap 求值 | 不解析 idmap（AXML/ARSC 之外的第三种二进制格式）；overlayable 可由上层用现有 AXML+sem 组合 | M4 复核维持不立项（W7 关闭） |
 | D12 | `resources.arsc` 回写 | `encode_arsc(ResTable) -> Bytes raise ArscError` 已交付（W9）；sparse/offset16/compact 显式拒绝（`BadTable`），dense 往返语义等价 | 值级回编职责（与 W8 同类） |
 | D13 | XML 文本→AXML 编译 | 不提供；文本构建继续交给 aapt2/上层工具 | 构建期资源编译非本库职责；M4 裁决不立项（W10 关闭） |
-| D14 | `encode_arsc` 的 `ResConfig.raw` 回写 | 仅当 `4 <= size <= raw.length()` 时按 `raw` 前 `size` 字节回写；`size > raw.length()`（含 `from_qualifiers` 构造的 `size=64`、`raw` 空）直接抛 `BadTable`，**不存在零填充分支**（代码中该分支不可达） | 值级回编要求 config 自描述；构造侧如需回编须自行提供 64 字节 `raw` |
-| D15 | CLI `--config` 的设备配置选值 | `--config` 仅做限定符解析（`from_qualifiers_ext`）并供名字级回退 `resolve_res_ref` 走 `lookup_with`；`--resolve` 的引用取值主路径仍是 `resolve_attr_value` → `ResTable::lookup`（默认配置优先），**不会**按设备配置选值。多配置表下 `--config zh-rCN` 仍输出默认配置值 | 接入取值路径属行为变更，待另行裁决；当前 L4 仅覆盖选项解析、名字级回退接线与非法限定符 |
+| D14 | `encode_arsc` 的 `ResConfig` 回写 | **2026-11-19 修复落地**：`size < 4` → `BadTable`；`raw.length() >= size` → 取前 `size` 字节原样回写（解析产物 raw 长度恒等于 size，与旧口径一致）；空/短 `raw`（`from_qualifiers` 构造型配置）→ 由 `encode_config_bytes` 按已解码 qualifier 字段序列化 `size` 字节镜像：前 4 字节写 `size`（自描述），按 AOSP `ResTable_config` 偏移写入 mcc/mnc/locale（2 位 ASCII 原样/3 位 15 位压缩，与 `unpack_locale` 对应）/…/localeScript/colorMode，其余零填充；config 镜像在 type chunk 内补齐 4 字节对齐（`entriesStart` 对齐要求，`size` 字段保持真实值）。往返后已解码字段逐字段等价（`raw` 为序列化镜像，不参与语义等价） | 值级回编要求 config 自描述；实证 `arsc_encode_test.mbt` W9-5（含 size=4/63/64/65 边界与 `size<4` 拒绝） |
+| D15 | CLI `--config` 的设备配置选值 | **2026-11-19 修复落地**：提供 `--config` 时取值主路径走 `resolve_attr_value_with_config`（`lookup_with` qualifier 最优匹配命中优先 → 未命中回退 `lookup` 默认优先 → 再未命中 `Unresolved`）；未提供 `--config` 时继续走旧 `resolve_attr_value`（既有输出逐字节不变）；名字级回退 `resolve_res_ref` 同走 `lookup_with`。库层新公开函数为纯加法（`pkg.generated.mbti` diff 仅 1 行），旧 `resolve_attr_value` 语义冻结 | 实证：库层 `arsc_match_test.mbt` W3 config 2 例 + L4 `cli_e2e_test.mbt` 双配置 4 断言 + `moon run` 端到端（fx-config fixture 对，见 `tests/ASSETS.md` §1；真实 fx-multidex manifest 的 label 为内嵌字面量，非引用，不适用该演示） |
 
 ## 2. 错误模型实数（冻结，不可新增错误变体）
 

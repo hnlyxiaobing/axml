@@ -10,9 +10,9 @@
 #   2. moon build
 #   3. moon test
 #   4. moon fmt --check
-#   5. moon info && git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti
-#      （pkg.generated.mbti 快照与源码一致性 fail-closed；cmd/main 下的快照同样纳入 diff 范围。
-#        纳入范围 = 本仓库内受版本控制且由 moon info 生成的全部快照，即仓库根与 cmd/main 两处；
+#   5. moon info && git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti cmd/cli/pkg.generated.mbti
+#      （pkg.generated.mbti 快照与源码一致性 fail-closed；cmd/main 与 cmd/cli 下的快照同样纳入 diff 范围。
+#        纳入范围 = 本仓库内受版本控制且由 moon info 生成的全部快照，即仓库根、cmd/main、cmd/cli 与 tools/* 各处；
 #        pkg.generated.mbti.r1 是历史 R1 基线存档，当前仓库内不存在、也不由 moon info 生成
 #        （若本地留有该文件同样不在 diff 范围），.mooncakes/ 下第三方包的
 #        快照不受本仓库版本控制，二者均不在 diff 范围。）
@@ -110,6 +110,13 @@ jobs:
         shell: bash
         run: moon test
 
+      # T-W2-3：fixture 双通道一致性门禁（ASSETS §1 SHA-256 + 内嵌块逐字节，
+      # fail-closed；文件缺失不静默跳过）。tools/* 包同为本仓库源码，已被
+      # Gate 1-3 一并检查/构建/测试。
+      - name: "Gate 3b · fixture consistency (tools/check_fixtures)"
+        shell: bash
+        run: moon run tools/check_fixtures
+
       - name: "Gate 4/5 · moon fmt --check"
         shell: bash
         run: moon fmt --check
@@ -119,13 +126,46 @@ jobs:
         run: |
           set -euo pipefail
           moon info
-          if ! git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti; then
+          if ! git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti cmd/cli/pkg.generated.mbti tools/check_fixtures/pkg.generated.mbti tools/genconfig/pkg.generated.mbti; then
             echo "::error::Gate 5/5 failed: pkg.generated.mbti snapshot out of sync with sources. Run 'moon info' locally and commit the regenerated snapshot together with the API change (additive changes also require a regenerated snapshot and an API-change note in this repository's docs/API.md)."
             exit 1
           fi
-          echo "Gate 5/5 OK: snapshot in sync (pkg.generated.mbti + cmd/main/pkg.generated.mbti)"
+          echo "Gate 5/5 OK: snapshot in sync (pkg.generated.mbti + cmd/main/pkg.generated.mbti + cmd/cli/pkg.generated.mbti + tools/*/pkg.generated.mbti)"
 
       - name: "Optional · moon clean (not a gate)"
         shell: bash
         continue-on-error: true
         run: moon clean
+
+  # L5 双目标等价门禁：与默认 wasm 同一套用例在 native 后端复跑。
+  # 等价口径 = 同一 moon test 全绿（本仓库测试无 target 分支逻辑）。
+  l5-native:
+    name: l5-dual-target (native moon test)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout axml
+        uses: actions/checkout@v5
+
+      - name: Install MoonBit toolchain (pinned ${{ env.MOON_VERSION_LOCKED }})
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p "$HOME/.moon/tmp"
+          if ! curl -fsSL https://cli.moonbitlang.com/install/unix.sh -o "$HOME/.moon/tmp/install.sh"; then
+            echo "::error::cannot download https://cli.moonbitlang.com/install/unix.sh"
+            exit 1
+          fi
+          if bash "$HOME/.moon/tmp/install.sh" "$MOON_VERSION_LOCKED"; then
+            echo "pinned install OK: moon $MOON_VERSION_LOCKED"
+          else
+            echo "::warning::pinned install of moon $MOON_VERSION_LOCKED failed (versioned artifacts may 403); falling back to latest - the next step asserts the locked versions and FAILS on any drift."
+            bash "$HOME/.moon/tmp/install.sh" || { echo "::error::fallback install failed"; exit 1; }
+          fi
+          echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
+
+      - name: "L5 · moon test --target native (same suite as wasm gate)"
+        shell: bash
+        run: |
+          set -euo pipefail
+          moon version --all
+          moon test --target native

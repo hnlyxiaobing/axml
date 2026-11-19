@@ -1,7 +1,7 @@
 # axml · 二进制 XML 与资源表解析
 
 > 独立发布单元 ｜ L1 逆向输入 ｜ `preferred_target = wasm` ｜ Apache-2.0
-> 状态：`moon test` **152/152** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入；含 L4 CLI 场景 E2E 17 例，`cmd/main` 原生承载）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **170/170** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入，共 173 声明；含 L4 CLI 场景 E2E 18 例 + 字节冻结基线 22 场景，`cmd/cli` 原生承载（`cmd/main` 仅进程入口）；wasm/native 双目标各 170/170）；本文件是本仓库**唯一**说明文档。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -15,7 +15,7 @@
 - `resources.arsc` 全链：package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
 - `resources.arsc` 值级回编 `encode_arsc`（dense 布局语义往返，sparse/offset16/compact 显式拒绝）
 - qualifier 匹配与 aapt2 式最优匹配、引用链深度上限 + 自引用检查（bag/attr 链带环检测）
-- `--config` 设备限定符解析（`from_qualifiers_ext`）+ 名字级回退 `lookup_with`；`--resolve` 取值主路径仍为默认配置优先（限制见 `docs/API.md` D15）
+- `--config` 设备限定符解析（`from_qualifiers_ext`）+ 引用取值最优匹配（`resolve_attr_value_with_config`：`lookup_with` 命中优先、未命中回退默认配置）+ 名字级回退 `lookup_with`；未提供 `--config` 时取值主路径保持默认配置优先（语义见 `docs/API.md` D15）
 - 主题感知联合解析（`resolve_attr_value_with_theme` / `eval_theme_attr`）
 - 动态引用映射视图 `dynamic_ref_view`（`origin_id` / `runtime_package_id` / `library_name`）
 - 多表联合解析 `ResTableSet` + `resolve_attr_value_multi`
@@ -106,8 +106,9 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 ## 5. 命令行与验证
 
 - `moon run cmd/main --target native -- dump <apk|axml> [--view ...] [--resolve] [--json]`；输出行 `EL|` `AT|` `SEM|` `POOL|` `STR|`（完整格式见 `tests/ASSETS.md` §3）。
-- CLI 契约自动化：L4 场景 E2E 由 `cmd/main/cli_e2e_test.mbt` 在 `moon test` 原生承载（退出码 0/1/2 矩阵 + 记录行逐字节冻结 + APK 直读 + 用法错误），经公开入口 `cli_run` 断言。
-- 复验：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff。
+- CLI 契约自动化：L4 场景 E2E 由 `cmd/cli/cli_e2e_test.mbt` 在 `moon test` 原生承载（退出码 0/1/2 矩阵 + 记录行逐字节冻结 + APK 直读 + 用法错误），经公开入口 `cli_run` 断言；T-W3-4 命令矩阵字节冻结基线为 `tests/cli-golden/`（22 个场景基线文件，`cmd/cli/cli_golden_test.mbt` 逐字节比较）。
+- fixture 一致性门禁（T-W2-3）：`moon run tools/check_fixtures`——`tests/ASSETS.md` §1 哈希 + `fixtures_test.mbt` 内嵌块逐字节 + 反向登记完备（fail-closed；CI Gate 3b 同步执行）。
+- 复验：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon test --target native` → `moon run tools/check_fixtures` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff。
 - 本仓库为独立 Git 仓库，文档与 CI 均自包含，不依赖工作区其他目录。
 
 ## 6. 风险与未决
@@ -115,5 +116,6 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
 - 写侧闭环已覆盖 AXML（`encode`）与 ARSC（`encode_arsc`）；XML 文本→AXML 编译为明确非目标。
-- 未自动化项：wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料、`tests/fixtures` 文件↔内嵌常量一致性脚本（T-W2-3）（见测试系统设计 §8；CLI L4 E2E 已于 2026-11-19 落地）。
+- 未自动化项：L3 aapt2 差分与真机 R runner（外部 oracle 依赖，未立项）。已于 2026-11-19 落地：wasm/native 双目标门禁（CI `l5-native` job，本地 wasm/native 各 170/170）、L1 截断/位翻转/变异（`fuzz_test.mbt`）、fixture 文件↔内嵌常量一致性门禁（T-W2-3，`tools/check_fixtures`）、CLI 字节冻结基线（T-W3-4，`tests/cli-golden/`）。
+- 残留未验证：`enc_pack_locale` 的 3 位 locale 压缩编码未与 aapt2 真实产物差分（现有真实 fixture 均为 2 位 ASCII locale）；CI 云上首跑（Gate 3b、`l5-native`）待 push 后确认。完整风险登记见开发计划 §9。
 

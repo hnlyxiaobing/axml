@@ -150,3 +150,59 @@
 - 计数：`moon test` 实测 152/152 + 3 skip，155 个 test 声明；测试系统设计原 135/135、138 声明与「cmd/main 无测试」已订正
 - 开发计划 DoD 不再声称「T-W*-* 验收全绿」；§2 缺失能力清单移除已交付的 vNN 项，补入 T-W2-3 与 `--config` 选值缺口
 - 注释/帮助文本：`tests/ASSETS.md` 记录行格式实为 §3（原多处误写 §4/§7）；`arsc.mbt` fraction 注释「×100」订正为「不乘 100」；`ci.yml` 不再把不存在的 `pkg.generated.mbti.r1` 当作实存文件描述
+
+## 缺口修复轮：W2/W3/W9 缺口闭环 + L1/性质/L5 补齐（2026-11-19）
+
+以「文档-代码对抗性核对报告」确认的缺口为输入，只做修复 + 测试 + 文档同步；`moon test` 170/170（+3 `#skip`，共 173 声明），wasm/native 双目标各 170/170；五门禁全绿，`pkg.generated.mbti` diff 纯加法（仅 +1 行：`resolve_attr_value_with_config`）。
+
+### P0-1 W3：`--config` 接入引用取值主路径（D15 更新）
+
+- 新增公开函数 `resolve_attr_value_with_config(AxmlDoc, ResTable, XmlAttribute, ResConfig) -> ResolvedAttr`（`arsc_match.mbt`，纯加法）：引用路径走 `lookup_with`（qualifier 最优匹配）命中优先，未命中回退 `lookup`（默认配置优先），再未命中 `Unresolved`；配套内部 `lookup_best`/`resolve_id_with_config_depth`/`try_resolve_raw_ref_with_config`
+- CLI：`--config` 提供时 `resolve_attr` 改走新函数；未提供时仍走旧 `resolve_attr_value`（既有输出逐字节不变，golden 基线冻结）；帮助文本同步
+- 事实订正：真实 fx-multidex manifest 的 `android:label` 为**内嵌字面量**（字符串池无 `@string/app_name`），任何实现都无法在该样本上观测配置选值——原审计「运行时反证」前提不成立；新增受控自产 fx-config fixture 对（`tools/genconfig` 生成，ASSETS §1 登记）承载 `moon run` 端到端实跑
+- 测试：`arsc_match_test.mbt` +2（zh 命中/en 回退/空 config 等同默认/旧函数冻结/文本引用/lookup 层策略）；`cli_e2e_test.mbt` +1（双配置表 4 断言）
+- 实跑：`dump fx-config.AndroidManifest.xml --resolve --arsc fx-config.resources.arsc --config zh` → `AT|1|application|…|label|Fx 多维`；无 `--config` → `Fx Multidex`
+
+### P0-2 W2：T-W2-3 双通道一致性门禁落地
+
+- 新增 `tools/check_fixtures`（executable 包，零第三方依赖）：①ASSETS §1 文件存在 + 实测 SHA-256（内置最小 SHA-256，FIPS 180-4/CAVP 向量 + 1000×'a' 多块向量（PowerShell Get-FileHash 独立实测）启动自测）；②`fixtures_test.mbt` FIXTURE-BEGIN/END 内嵌块逐字节比对（首个差异打印文件/偏移/期望/实际）；③内嵌块反向登记完备；退出码 0/1，文件缺失不静默跳过，无内嵌块样本显式「仅哈希」
+- 新增 `tools/genconfig`（溯源生成器）：程序化构造 fx-config fixture 对（manifest `android:label` 为 Reference 0x7f010000 + arsc string/app_name 双配置）
+- fixture 集 10 → 12 文件（ASSETS §1 更新）；红→绿实证：篡改单字节 → FAIL（SHA-256 不一致）exit 1 → 还原 → exit 0
+- CI：five-gates job 增补 Gate 3b `moon run tools/check_fixtures`；Gate 5 快照 diff 纳入 tools/*/pkg.generated.mbti
+
+### P0-3 W9：`encode_arsc` 空/短 `ResConfig.raw` 序列化回编（D14 更新）
+
+- `arsc_encode.mbt`：新增 `encode_config_bytes`——`size < 4` → `BadTable`；`raw.length() >= size` → 取前 `size` 字节原样回写（解析产物语义不变）；空/短 `raw` → 按已解码 qualifier 字段序列化 `size` 字节镜像（size 字段自描述 + `enc_pack_locale` 2 位 ASCII/3 位 15 位压缩 + 其余零填充）；type chunk 内 config 镜像补齐 4 字节对齐（AOSP `entriesStart` 对齐要求，实测 size=63 未对齐会被解析侧拒绝）
+- 测试：`arsc_encode_test.mbt` +2（W9-5 构造型配置往返字段等价：`from_qualifiers("")`/`"zh-rCN"`/富限定符 BCP47 三字母 + size=4/63/64/65 边界 + `size<4` 拒绝 + over-long raw 截断）
+
+### P0-4 T-W3-4：CLI 字节冻结基线
+
+- 新增 `tests/cli-golden/` 22 个场景基线文件 + `cmd/main/cli_golden_test.mbt`：views×6 / APK×3 / resolve+config×4 / errors+help×9，逐字节比较（退出码 + stdout/stderr 全部行）；基线缺失时落盘并判失败（已提交基线在 CI 恒存在，恒 fail-closed）
+- 红→绿实证：临时改帮助文本 1 字符 → 2 基线 MISMATCH；还原后 19/19 绿
+
+### P1-1 L1：截断/位翻转/变异（`fuzz_test.mbt` +4）
+
+- 截断扫描：9 个入库 fixture（素数步长抽样 + chunk 头/池偏移表/entry 偏移表/entriesStart 边界必采）9188 例 + W8 `encode`/W9 `encode_arsc` 产物 343 例；断言仅声明错误或成功、无 panic
+- 位翻转：564 例（chunk type/headerSize/size、stringCount、attributeCount、type/typeSpec entryCount、entry offset、`Res_value.size`）；`Res_value.size=8` 按 AOSP「size≥8 接受、多余忽略」仅 bit3 可观察，良性位文档化排除
+- 变异：1050 固定种子（xorshift32）替换/插入/删除变异体，7 fixture，不 panic + 错误属声明集合
+
+### P1-2 性质测试（`property_test.mbt` +4）
+
+- P3 解析确定性（4 fixture 两次解析指纹相等）；P4 配置退化律（默认存在 ≡ / 无默认文档化分叉 None vs chunk-first）；P6 渲染一致律（`resolve_id` ≡ `format_value`，`lookup` 同条目口径）；P10 防火墙律（W3 旧 ≡ 新+全零设备、W4 非 ?attr 一致、W6 单表集合 ≡ 单表、W9 往返指纹）
+
+### P1-3 L5：双目标等价 + 变异自检
+
+- 本地 `moon test --target native` 与 wasm 同套用例各 170/170；CI 新增 `l5-native` job
+- 变异自检红→绿：①字符串计数校验 off-by-one（3+ 红）②chunk size 步进错误（3 红）③bag 压平顺序反转（2 红）；逐一还原后 170/170 绿
+
+### 文档同步
+
+- 开发计划：状态行、W2/W3/W9 条目、§2 能力表与缺失清单、§8 DoD 全勾选
+- 测试系统设计：头部/§2 计数 170/170+3skip（173 声明）、§3 F-B/F-C、§4 P3/P4/P6/P7/P10 + 截断/变异、§6.1 F5/F6/F7/S1/S2/C2/C5/C6、§7 设备配置与冻结行、§8 L5、§9 命令、§10 清单
+- `docs/API.md` D14（零填充真实语义）/D15（取值主路径）改写；README 状态行/能力/§5/§6 同步；`tests/ASSETS.md` §1（12 文件）/§2（门禁落地）
+- 新增 pub 声明：`resolve_attr_value_with_config`（快照纯加法 +1 行）；零新第三方依赖；零新错误变体
+
+## 过程资料归档（2026-11-19）
+
+- 本轮「文档-代码对抗性核对」与「缺口修复轮」的过程工作目录（审计报告、任务清单、验证日志、下一轮提示词、落地报告）已清理，不再保留重复副本
+- 有效结论去向：核对订正与修复证据见本文件上方两个条目；残留风险（3 位 locale 未与 aapt2 差分、CI 云上首跑未验证、fx-config 为受控自产、P2 未立项）见开发计划 §9 风险登记与 README §6；降级语义见 `docs/API.md` D14/D15；fixture 登记见 `tests/ASSETS.md` §1/§2

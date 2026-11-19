@@ -12,7 +12,7 @@
 
 ///|
 /// 中央目录条目（宽松读取器视图）。
-struct ZEntry {
+priv struct ZEntry {
   name : String
   usize : Int32
   csize : Int32

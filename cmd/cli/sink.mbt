@@ -5,7 +5,7 @@
 /// 跨结构体按值传递仍共享同一底层数组，故捕获模式可跨调用累积。
 
 ///|
-struct Sink {
+priv struct Sink {
   capture : Bool
   out_lines : Array[String]
   err_lines : Array[String]

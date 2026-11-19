@@ -306,3 +306,363 @@ test "W9-4: fx-multidex 真实资源表 encode_arsc 往返" {
   )
   assert_eq(w9_table_fp(t2), w9_table_fp(t), msg="往返规范指纹一致")
 }
+
+///|
+/// W9-5 辅助（W9 修复）：逐字段比较两个 `ResConfig` 的已解码 qualifier
+/// （`raw` 为序列化镜像产物，不参与语义等价）。
+fn w9_cfg_eq(
+  got : @axml.ResConfig,
+  want : @axml.ResConfig,
+  tag : String,
+) -> Unit raise {
+  assert_eq(got.size, want.size, msg="\{tag}: size")
+  assert_eq(got.mcc, want.mcc, msg="\{tag}: mcc")
+  assert_eq(got.mnc, want.mnc, msg="\{tag}: mnc")
+  assert_eq(got.language, want.language, msg="\{tag}: language")
+  assert_eq(got.country, want.country, msg="\{tag}: country")
+  assert_eq(got.orientation, want.orientation, msg="\{tag}: orientation")
+  assert_eq(got.touchscreen, want.touchscreen, msg="\{tag}: touchscreen")
+  assert_eq(got.density, want.density, msg="\{tag}: density")
+  assert_eq(got.keyboard, want.keyboard, msg="\{tag}: keyboard")
+  assert_eq(got.navigation, want.navigation, msg="\{tag}: navigation")
+  assert_eq(got.input_flags, want.input_flags, msg="\{tag}: inputFlags")
+  assert_eq(got.screen_width, want.screen_width, msg="\{tag}: screenWidth")
+  assert_eq(got.screen_height, want.screen_height, msg="\{tag}: screenHeight")
+  assert_eq(got.sdk_version, want.sdk_version, msg="\{tag}: sdkVersion")
+  assert_eq(got.screen_layout, want.screen_layout, msg="\{tag}: screenLayout")
+  assert_eq(got.ui_mode, want.ui_mode, msg="\{tag}: uiMode")
+  assert_eq(
+    got.smallest_screen_width_dp,
+    want.smallest_screen_width_dp,
+    msg="\{tag}: smallestScreenWidthDp",
+  )
+  assert_eq(got.screen_width_dp, want.screen_width_dp, msg="\{tag}: widthDp")
+  assert_eq(got.screen_height_dp, want.screen_height_dp, msg="\{tag}: heightDp")
+  assert_eq(got.locale_script, want.locale_script, msg="\{tag}: localeScript")
+  assert_eq(got.color_mode, want.color_mode, msg="\{tag}: colorMode")
+}
+
+///|
+/// W9-5 辅助：构造单包单类型单条目、给定配置的构造型 `ResTable`
+/// （条目值为 IntDec，避免全局池耦合；配置 raw 为空 = 构造型）。
+fn w9_struct_table(cfg : @axml.ResConfig) -> @axml.ResTable {
+  let entry : @axml.ResEntry = {
+    key: 0,
+    key_name: "solo",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::IntDec,
+      data: 42U,
+    }),
+  }
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "w9.cfg",
+    type_id_offset: 0,
+    type_pool: mr_pool(["string"]),
+    key_pool: mr_pool(["solo"]),
+    types: [
+      {
+        id: 1,
+        types_count: 1,
+        entry_count: 1,
+        spec_flags: [0x40000000U],
+        configs: [{ id: 1, flags: 0, config: cfg, entries: [Some(entry)], }],
+      },
+    ],
+    libraries: [],
+  }
+  { global_pool: mr_pool([]), packages: [pkg], package_count: 1, }
+}
+
+///|
+/// W9-5（W9 修复）：`from_qualifiers` 构造型配置（raw 为空）回编成功，
+/// `parse_arsc` 后已解码 qualifier 字段逐字段等价；zh 值经 `lookup_with` 命中。
+test "W9-5: 构造型配置 encode_arsc 往返字段等价" {
+  let def = @axml.ResConfig::from_qualifiers("") catch { _ => abort("def") }
+  let zh = @axml.ResConfig::from_qualifiers("zh-rCN") catch { _ => abort("zh") }
+  let rich = @axml.ResConfig::from_qualifiers_ext(
+    "sw600dp-w960dp-h540dp-land-night-xhdpi-v21-b+fil",
+  ) catch {
+    _ => abort("rich")
+  }
+  // —— 默认 + zh 双配置构造型表 ——
+  let entry_def : @axml.ResEntry = {
+    key: 0,
+    key_name: "solo",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::IntDec,
+      data: 1U,
+    }),
+  }
+  let entry_zh : @axml.ResEntry = {
+    key: 0,
+    key_name: "solo",
+    flags: 0,
+    value: @axml.ResEntryValue::Simple({
+      data_type: @axml.ResDataType::IntDec,
+      data: 2U,
+    }),
+  }
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "w9.cfg",
+    type_id_offset: 0,
+    type_pool: mr_pool(["string"]),
+    key_pool: mr_pool(["solo"]),
+    types: [
+      {
+        id: 1,
+        types_count: 2,
+        entry_count: 1,
+        spec_flags: [0x40000000U],
+        configs: [
+          { id: 1, flags: 0, config: def, entries: [Some(entry_def)], },
+          { id: 1, flags: 0, config: zh, entries: [Some(entry_zh)], },
+        ],
+      },
+    ],
+    libraries: [],
+  }
+  let dual : @axml.ResTable = {
+    global_pool: mr_pool([]),
+    packages: [pkg],
+    package_count: 1,
+  }
+  let out = @axml.encode_arsc(dual)
+  let t2 = @axml.parse_arsc(out)
+  let hits = @axml.ResTable::lookup_all(t2, ar_id(0x7f, 1, 0))
+  assert_eq(hits.length(), 2, msg="双配置均保留")
+  w9_cfg_eq(hits.at(0).config, def, "默认配置")
+  w9_cfg_eq(hits.at(1).config, zh, "zh-rCN 配置")
+  // zh-rCN 设备经 lookup_with 命中 zh-rCN 条目（zh-rCN 配置要求设备同语言同地区）
+  let zh_dev = @axml.ResConfig::from_qualifiers("zh-rCN") catch {
+    _ => abort("dev")
+  }
+  match t2.lookup_with(ar_id(0x7f, 1, 0), zh_dev) {
+    None => fail("lookup_with 应命中 zh")
+    Some(hit) =>
+      match hit.entry.value {
+        Simple(v) => assert_eq(v.data, 2U, msg="zh 条目值（IntDec 2）")
+        Complex(_) => fail("solo 应为简单条目")
+      }
+  }
+  // —— 富限定符构造型配置（尺寸/density/night/v21/BCP47 三字母）——
+  let t3 = @axml.parse_arsc(@axml.encode_arsc(w9_struct_table(rich)))
+  let hits3 = @axml.ResTable::lookup_all(t3, ar_id(0x7f, 1, 0))
+  assert_eq(hits3.length(), 1, msg="富配置保留")
+  w9_cfg_eq(hits3.at(0).config, rich, "富限定符配置")
+  assert_true(
+    hits3.at(0).config.matches(rich),
+    msg="回读配置匹配同构造型设备",
+  )
+}
+
+///|
+/// W9-5：config size 边界 4/63/64/65 均可回编且 size 字段自描述回读；
+/// size < 4 仍报 `BadTable`；`raw.length() >= size` 时取前 size 字节。
+test "W9-5: config size 边界（4/63/64/65）与拒绝路径" {
+  // —— 63/64/65 边界：raw 为空 -> 字段序列化 + 零填充（全部已解码字段落盘）——
+  for sz in [63, 64, 65] {
+    let cfg : @axml.ResConfig = {
+      size: sz,
+      mcc: 310,
+      mnc: 4,
+      language: "en",
+      country: "US",
+      orientation: 1,
+      touchscreen: 3,
+      density: 480,
+      keyboard: 2,
+      navigation: 1,
+      input_flags: 2,
+      screen_width: 1080,
+      screen_height: 1920,
+      sdk_version: 21,
+      screen_layout: 0x03,
+      ui_mode: 0x20,
+      smallest_screen_width_dp: 600,
+      screen_width_dp: 960,
+      screen_height_dp: 540,
+      locale_script: "Latn",
+      color_mode: 0x0C,
+      raw: Bytes::make(0, b'\x00'),
+    }
+    let t = @axml.parse_arsc(@axml.encode_arsc(w9_struct_table(cfg)))
+    let hits = @axml.ResTable::lookup_all(t, ar_id(0x7f, 1, 0))
+    assert_eq(hits.length(), 1, msg="size=\{sz} 条目保留")
+    w9_cfg_eq(hits.at(0).config, cfg, "size=\{sz}")
+  }
+  // —— size=4 边界：仅 size 字段落盘，其余已解码字段解析恒为 0 ——
+  let sz4 : @axml.ResConfig = {
+    size: 4,
+    mcc: 0,
+    mnc: 0,
+    language: "",
+    country: "",
+    orientation: 0,
+    touchscreen: 0,
+    density: 0,
+    keyboard: 0,
+    navigation: 0,
+    input_flags: 0,
+    screen_width: 0,
+    screen_height: 0,
+    sdk_version: 0,
+    screen_layout: 0,
+    ui_mode: 0,
+    smallest_screen_width_dp: 0,
+    screen_width_dp: 0,
+    screen_height_dp: 0,
+    locale_script: "",
+    color_mode: 0,
+    raw: Bytes::make(0, b'\x00'),
+  }
+  let t4 = @axml.parse_arsc(@axml.encode_arsc(w9_struct_table(sz4)))
+  let hits4 = @axml.ResTable::lookup_all(t4, ar_id(0x7f, 1, 0))
+  assert_eq(hits4.length(), 1, msg="size=4 条目保留")
+  w9_cfg_eq(hits4.at(0).config, sz4, "size=4")
+  // —— size < 4 拒绝 ——
+  let tiny : @axml.ResConfig = {
+    size: 3,
+    mcc: 0,
+    mnc: 0,
+    language: "",
+    country: "",
+    orientation: 0,
+    touchscreen: 0,
+    density: 0,
+    keyboard: 0,
+    navigation: 0,
+    input_flags: 0,
+    screen_width: 0,
+    screen_height: 0,
+    sdk_version: 0,
+    screen_layout: 0,
+    ui_mode: 0,
+    smallest_screen_width_dp: 0,
+    screen_width_dp: 0,
+    screen_height_dp: 0,
+    locale_script: "",
+    color_mode: 0,
+    raw: Bytes::make(0, b'\x00'),
+  }
+  let raised = try {
+    ignore(@axml.encode_arsc(w9_struct_table(tiny)))
+    false
+  } catch {
+    err =>
+      match err {
+        @axml.ArscError::BadTable(_) => true
+        _ => false
+      }
+  }
+  assert_true(raised, msg="size<4 应报 BadTable")
+  // —— raw.length() >= size：取前 size 字节（多出的尾部不回写）——
+  let full_raw : Array[Byte] = []
+  for i in 0..<70 {
+    full_raw.push(((i * 7 + 1) & 0xFF).to_byte())
+  }
+  // 前 4 字节手工写 size=64（自描述），保证回读 size 一致
+  full_raw[0] = b'\x40'
+  full_raw[1] = b'\x00'
+  full_raw[2] = b'\x00'
+  full_raw[3] = b'\x00'
+  let over : @axml.ResConfig = {
+    size: 64,
+    mcc: 0,
+    mnc: 0,
+    language: "",
+    country: "",
+    orientation: 0,
+    touchscreen: 0,
+    density: 0,
+    keyboard: 0,
+    navigation: 0,
+    input_flags: 0,
+    screen_width: 0,
+    screen_height: 0,
+    sdk_version: 0,
+    screen_layout: 0,
+    ui_mode: 0,
+    smallest_screen_width_dp: 0,
+    screen_width_dp: 0,
+    screen_height_dp: 0,
+    locale_script: "",
+    color_mode: 0,
+    raw: Bytes::from_array(full_raw),
+  }
+  let t_over = @axml.parse_arsc(@axml.encode_arsc(w9_struct_table(over)))
+  let hits_over = @axml.ResTable::lookup_all(t_over, ar_id(0x7f, 1, 0))
+  assert_eq(hits_over.length(), 1, msg="over-long raw 条目保留")
+  let back = hits_over.at(0).config
+  assert_eq(back.size, 64, msg="size 自描述")
+  assert_eq(back.raw.length(), 64, msg="raw 截断到 size")
+  for i in 0..<64 {
+    assert_eq(
+      back.raw.at(i),
+      full_raw.at(i),
+      msg="over-long raw 前 64 字节逐字节一致（i=\{i}）",
+    )
+  }
+}
+
+///|
+/// W9-5 辅助：构造仅 `locale_script` 非零、size=40 的构造型配置
+/// （raw 为空，走字段序列化路径）。
+fn w9_cfg_script(script : String) -> @axml.ResConfig {
+  {
+    size: 40,
+    mcc: 0,
+    mnc: 0,
+    language: "",
+    country: "",
+    orientation: 0,
+    touchscreen: 0,
+    density: 0,
+    keyboard: 0,
+    navigation: 0,
+    input_flags: 0,
+    screen_width: 0,
+    screen_height: 0,
+    sdk_version: 0,
+    screen_layout: 0,
+    ui_mode: 0,
+    smallest_screen_width_dp: 0,
+    screen_width_dp: 0,
+    screen_height_dp: 0,
+    locale_script: script,
+    color_mode: 0,
+    raw: Bytes::make(0, b'\x00'),
+  }
+}
+
+///|
+/// W9-5（localeScript NUL 填充）：`locale_script` 不足 4 字节时，镜像
+/// 36..40 偏移必须逐字节补 NUL；超过 4 字节时截断为前 4 字节。
+test "W9-5: localeScript 4 字节 NUL 填充" {
+  let cases : Array[(String, Array[Int32], String)] = [
+    ("", [0, 0, 0, 0], ""),
+    ("Lat", [0x4C, 0x61, 0x74, 0], "Lat"),
+    ("Latn", [0x4C, 0x61, 0x74, 0x6E], "Latn"),
+    ("LatnX", [0x4C, 0x61, 0x74, 0x6E], "Latn"),
+  ]
+  for case in cases {
+    let (script, want, want_back) = case
+    let t = @axml.parse_arsc(
+      @axml.encode_arsc(w9_struct_table(w9_cfg_script(script))),
+    )
+    let hits = @axml.ResTable::lookup_all(t, ar_id(0x7f, 1, 0))
+    assert_eq(hits.length(), 1, msg="script=\{script} 条目保留")
+    let cfg = hits.at(0).config
+    for i in 0..<4 {
+      assert_eq(
+        cfg.raw.at(36 + i).to_int(),
+        want[i],
+        msg="script=\{script} 偏移 36+\{i}",
+      )
+    }
+    assert_eq(cfg.locale_script, want_back, msg="script=\{script} 回读")
+  }
+}

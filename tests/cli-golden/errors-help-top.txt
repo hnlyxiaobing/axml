@@ -1,0 +1,22 @@
+== errors-help-top ==
+exit|0
+out|axml-cli —— 二进制 AXML / APK 清单工具（hnlyxiaobing/axml 公开 API 驱动）
+
+用法:
+  axml-cli dump <apk|axml文件> [--view tree|sem|pool] [--entry <name>]
+      [--resolve] [--arsc <resources.arsc>] [--config <qualifiers>] [--json]
+      tree（默认）：manifest 树，EL|depth|ns|name + AT|depth|elem|ns|name|value
+      sem：语义摘要，SEM|package/versionCode/versionName/minSdk/targetSdk/label/activity/permission
+      pool：字符串池，POOL|count + STR|i|text
+      --entry <name> 指定 APK 内的 AXML 条目（默认 AndroidManifest.xml）
+      --resolve 把资源引用解析为人类可读值（@string/app_name → MyApp；
+      名字级 @type/name 与原值 @0x%08x 为降级回退）；资源表取 --arsc <file>，
+      缺省时取 APK 内 resources.arsc
+      --config <qualifiers> 设备限定符串（扩展版），参与引用取值的最优匹配；
+      未命中时回退默认配置；名字级回退同走 lookup_with；例：--config sw600dp-port-v21-b+en+US
+  axml-cli --help
+
+输入: .apk（ZIP 容器，自动取清单条目）或原始二进制 .axml/.xml（按魔数判别）。
+输出: 默认人类可读记录行（规范化口径见 tests/ASSETS.md §3）；
+      --json 输出单行 JSON（stdout）；错误信息一律走 stderr。
+退出码: 0=成功 1=解析或IO错误 2=用法错误

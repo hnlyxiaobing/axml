@@ -1,0 +1,20 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "hnlyxiaobing/axml/cmd/cli"
+
+// Values
+pub fn cli_run(Array[String], Bytes, Bytes?) -> CliResult
+
+pub async fn run_main(Array[String]) -> Int32
+
+// Errors
+
+// Types and methods
+pub(all) struct CliResult {
+  code : Int32
+  out : Array[String]
+  err : Array[String]
+}
+
+// Type aliases
+
+// Traits
