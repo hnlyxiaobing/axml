@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M4 已交付（W1–W6、W8、W9，2026-11-19；135/135）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9 并交付、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M4 已交付（W1–W6、W8、W9，2026-11-19；152/152）；L4 CLI E2E 已落地（2026-11-19，+17 例）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制）；M4 裁决：arsc 回写立项 W9 并交付、W7 复核维持不立项、XML 文本→AXML 维持非目标 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -29,7 +29,7 @@
 | B19 | 五门禁 2026-11-16 本机实测全绿：`moon check --deny-warn` / `build` / `test` **103/103** / `fmt --check` / `info`+快照无 diff。3 个 `#skip` 不计通过：①checksum 污染（AXML 无 checksum 字段，N/A）②framework-res tree/pool 黄金过大未登记 ③真机测试本轮不执行 | 本机实跑输出；`fixtures_malformed_test.mbt` L235、`fixtures_test.mbt` L542/L571 |
 | B20 | `tests/fixtures/*.bin` 10 个文件**不被任何测试读取**；回归实际依赖 `fixtures_test.mbt` 内嵌字节常量（FIXTURE-BEGIN/END 标记）；文件↔内嵌一致性无自动化校验 | `fixtures_test.mbt` L18-30 等；全测试文件无文件读取调用 |
 | B21 | 零第三方依赖（`moon.mod` 无 import）；CLI 仅用 core（async/fs/compress/flate/env）；`preferred_target=wasm`；CI 为 wasm 五门禁 + 工具链版本钉死断言（moon 0.1.20261104 / moonc v0.10.20+65efd5b93） | `moon.mod`、`cmd/main/moon.pkg`、`.github/workflows/ci.yml` |
-| B22 | **测试缺口**：`cmd/main` 无任何测试文件（CLI 契约无自动化回归）；CI 仅 wasm 目标，无 wasm/native 双目标等价门禁 | `cmd/main/` 目录实测；`ci.yml` L55 |
+| B22 | **测试缺口（部分关闭）**：CLI 契约无自动化回归——2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt` 16 例，`moon test` 原生承载，经行为保持型重构引入 `Sink` + 公开 `cli_run`）；**仍开放**：CI 仅 wasm 目标，无 wasm/native 双目标等价门禁（L5 待建） | `cmd/main/cli_e2e_test.mbt`；`ci.yml` L55 |
 | B23 | **漂移**：`complex_number` 头注释称 fraction「×100 渲染为百分数」，实现注释与代码均为「不乘 100」（与 aapt2 dump 一致，实现正确） | `arsc.mbt` L719 vs L736-738 |
 | B24 | `from_qualifiers` 构造的 config `size=64`、`raw` 为空字节；解析所得 config `raw`=原始字节。恒等式断言须按构造路径区分 | `arsc_match.mbt` L22-45；`arsc_decode.mbt` `parse_config` L584 |
 
@@ -72,7 +72,7 @@
 - 证据等级：ARSCLib/androidbinary/adbkit-apkreader/axmldec 能力结论 = [已联网核实 2026-11-16，一手 README]；androguard = [已知常识]+二手用法片段；表中 ◐/— 与各家 star 数、维护状态 = [需联网核实]。
 - **最接近 1–3 名**：① shogo82148/androidbinary（Go，MIT）——同为「解析 only + 配置感知取值 + 高层 label/icon」组合，重叠度最高；② REAndroid/ARSCLib（Java）——读侧超集且含写侧（本库非目标）；③ androguard（Python）——AXML+ARSC+语义全栈。
 - **差异化判断**：本库是「已有成熟解析能力的 MoonBit 独立重写 + 组合语义差异化」——严格 fail-closed 结构校验（尾随垃圾拒绝、NUL/UTF 严格）、字节偏移错误模型、纯值零依赖、wasm/native 双目标、AXML×ARSC 单库联合解析。该组合在检索范围内未见同语言同类 [需联网核实：mooncakes 搜索接口 422 不可用，结论限定为已发布包+可用索引、调研时点 2026-11-16]。
-- **缺失能力清单**：已声明非目标=资源编译/打包、框架资源（无表时）、overlay/idmap（申报书「后续」；W8 回编、W9 arsc 回写已交付，不再属缺口）；**真缺口**（M0–M4 交付后剩余）=CLI E2E 自动化（B22，`cmd/main` 无自动化测试）、`vNN` 等 qualifier 子集（B10）、L4/L5 自动化缺口。
+- **缺失能力清单**：已声明非目标=资源编译/打包、框架资源（无表时）、overlay/idmap（申报书「后续」；W8 回编、W9 arsc 回写已交付，不再属缺口）；**真缺口**（M0–M4 交付后剩余）=`vNN` 等 qualifier 子集（B10）、L5 双目标差分/变异自检（脚本层）；CLI E2E 自动化（B22）已于 2026-11-19 由 L4 落地闭环（`cmd/main/cli_e2e_test.mbt`，`moon test` 原生承载）。
 
 ## 3. 边界裁决（P3 结论）
 
@@ -150,7 +150,7 @@ pub fn ResConfig::from_qualifiers_ext(String) -> Self raise ArscError
 - CLI 新选项 `--config <qualifiers>`：仅与 `--resolve` 同用（否则退出码 2，与 `--arsc` 约束同构）；解析用 `from_qualifiers_ext`；`--resolve` 取值路径在有 `--config` 时改走 `lookup_with(id, device)`，未命中回退 `lookup`（默认配置优先），再退 `@0x%08x`。
 - `util.mbt` 新增内部渲染分支，不动既有 `attr_value` 无 resolve 路径；帮助文本追加选项说明（加法）。
 - 落点：`arsc_match.mbt`（新函数）、`cmd/main/main.mbt`（选项）、`cmd/main/util.mbt`（分支）。
-**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2）；T-W3-6（快照 diff 纯加法 + 五门禁）。T-W3-1/2/6 已自动化且绿；T-W3-3/4/5 为 CLI 场景 E2E，`cmd/main` 目前无自动化测试，**未落地，归入测试系统设计 L4 待建缺口**（B22）。
+**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2）；T-W3-6（快照 diff 纯加法 + 五门禁）。T-W3-1/2/6 已自动化且绿；**T-W3-3/4/5 已于 2026-11-19 落地**为 L4 CLI 场景 E2E（`cmd/main/cli_e2e_test.mbt`，`moon test` 原生承载；含 `--config zh-rCN` 走 `lookup_with`、无新选项冻结、`--config` 缺 `--resolve` → 退出码 2 逐例断言）。
 
 ### W4 主题感知属性解析新函数（P1/M）
 

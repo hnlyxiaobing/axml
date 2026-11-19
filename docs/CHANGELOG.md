@@ -111,6 +111,26 @@
 - 快照 diff：纯加法（+1 pub fn）
 - 测试增量：+6 执行用例（W9-1 空表逐字节往返 / 非空全局池往返；W9-2 dense 简单值往返（含双配置 + 颜色/布尔）; W9-3 bag/library/config 变体往返 + sparse/offset16/compact 显式拒绝；W9-4 fx-multidex 真实 ARSC 语义往返）
 
+## L4 · CLI 场景 E2E（原生 `moon test` 承载）（2026-11-19）
+
+- 补齐 B22「`cmd/main` 无自动化测试」缺口：L4 按测试系统设计 §9 选择「`moon test` 原生承载」，不引入脚本层依赖
+- **行为保持型重构**（CLI 对外契约零漂移）：
+  - 新增 `cmd/main/sink.mbt`：`Sink` 输出汇（真实模式转发 stdout/stderr；捕获模式缓冲行），`out_line`/`err_line` 统一出口
+  - `main.mbt` 拆为「选项解析 `parse_dump` + 输入无关核心 `cmd_dump_core`（raise）+ 真实文件入口 `cmd_dump`（async）」，全部输出改经 `Sink`
+  - `zipmin.mbt` 错误输出改经 `Sink`（`zip_min_entries`/`zip_min_extract`/`zip_min_get`/`zip_entry`/`zip_entry_quiet` 均增 `sink` 参数）
+- 新增 pub 声明（纯加法，`.mbti` 仅新增）：
+  - `cli_run(Array[String], Bytes, Bytes?) -> CliResult`：内存字节输入 + 捕获 stdout/stderr + 退出码的 E2E 入口
+  - `pub(all) struct CliResult { code : Int32, out : Array[String], err : Array[String] }`
+  - 私有类型 `DumpOpts` / `Sink` 以 opaque `type` 形式出现在 `.mbti`（与既有 `RefCtx`/`SemInfo`/`ZEntry` 同形，非新增可见 API 面）
+- 子命令分派在 `cli_run` 中与真实入口 `run` 逐项一致（缺子命令/`--help`/未知子命令/`dump`），保证退出码矩阵端到端可断言
+- 快照 diff：纯加法（+1 pub fn、+1 pub(all) struct、+2 opaque type）
+- 测试增量：+17 执行用例（`cmd/main/cli_e2e_test.mbt`；夹具全程序化构造，无外部依赖）：
+  - 退出码 0：tree / pool / sem 记录行逐字节冻结、`--json` 单行输出
+  - 退出码 1：AXML 解析失败、APK 条目缺失、截断 ZIP、非法 `--config` 限定符
+  - 退出码 2：用法错误矩阵 9 例（缺/未知子命令、未知选项、缺输入、非法 view、`--arsc`/`--config` 缺 `--resolve`、`--entry` 对非 ZIP、`--resolve` 无表）+ 无输入字节时 2 例；`dump --help` / 顶层 `--help` -> 退出码 0（1 例，契约冻结）
+  - 场景：APK 直读（手工构造 Store 型 ZIP）与裸 AXML dump 输出一致、`--entry` 指定条目、`--resolve --arsc` 引用解析为 `MyApp`、`--config` 走 `lookup_with`、未知选项冻结
+- 复验：`moon test` 152/152 执行通过 + 3 `#skip`（2026-11-19）；真实 CLI 回归（base/fx-multidex 的 tree/sem/json、`--resolve` 解析 `Fx Multidex`、用法错 2 / IO 错 1）逐项一致
+
 ## P0 · 文档一致性同步（2026-11-19）
 
 - README 状态行 103/103 → 129/129；能力清单补 `encode` / `--config` / 主题求值 / 动态引用视图 / 多表联合；非目标补 W9/W10/idmap

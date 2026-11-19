@@ -8,6 +8,7 @@
 /// 计算负载起点、跳过整个 extra 区域，**不遍历 extra 链**，对填充天然容忍。
 /// 范围限定（如实登记）：不支持 ZIP64（本仓库样本均无）、
 /// 仅 method 0(Store)/8(Deflate)、不做 CRC-32 校验；条目名按 UTF-8 解码。
+/// 错误信息统一经 `Sink` 输出（真实模式走 stderr；捕获模式供测试断言）。
 
 ///|
 /// 中央目录条目（宽松读取器视图）。
@@ -78,11 +79,11 @@ fn z_slice(data : Bytes, off : Int32, len : Int32) -> Bytes {
 }
 
 ///|
-/// 解析中央目录 -> 条目表（结构异常时输出错误并返回空表）。
-fn zip_min_entries(data : Bytes) -> Array[ZEntry] {
+/// 解析中央目录 -> 条目表（结构异常时经汇输出错误并返回空表）。
+fn zip_min_entries(data : Bytes, sink : Sink) -> Array[ZEntry] {
   let n = data.length()
   if n < 22 {
-    eprintln("error: zip: 文件过短")
+    err_line(sink, "error: zip: 文件过短")
     return ([] : Array[ZEntry])
   }
   // EOCD：从尾部回扫（注释区最长 65535 字节）
@@ -97,16 +98,16 @@ fn zip_min_entries(data : Bytes) -> Array[ZEntry] {
     i = i - 1
   }
   if eocd < 0 {
-    eprintln(
-      "error: zip: 找不到 EOCD（不是 ZIP/APK 或尾部结构损坏）",
+    err_line(
+      sink, "error: zip: 找不到 EOCD（不是 ZIP/APK 或尾部结构损坏）",
     )
     return ([] : Array[ZEntry])
   }
   let count = z_u16(data, eocd + 10)
   let cd_off = z_u32(data, eocd + 16)
   if cd_off < 0 || cd_off + 4 > n {
-    eprintln(
-      "error: zip: 中央目录偏移异常（≥2GiB 或越界，不支持）",
+    err_line(
+      sink, "error: zip: 中央目录偏移异常（≥2GiB 或越界，不支持）",
     )
     return ([] : Array[ZEntry])
   }
@@ -115,7 +116,10 @@ fn zip_min_entries(data : Bytes) -> Array[ZEntry] {
   let mut k = 0
   while k < count {
     if pos + 46 > n || z_u32(data, pos) != 0x02014b50 {
-      eprintln("error: zip: 中央目录记录签名异常（entry \{k}）")
+      err_line(
+        sink,
+        "error: zip: 中央目录记录签名异常（entry \{k}）",
+      )
       return ([] : Array[ZEntry])
     }
     let comp = z_u16(data, pos + 10)
@@ -126,13 +130,14 @@ fn zip_min_entries(data : Bytes) -> Array[ZEntry] {
     let cmt_len = z_u16(data, pos + 32)
     let local_off = z_u32(data, pos + 42)
     if csize < 0 || usize < 0 || local_off < 0 {
-      eprintln(
+      err_line(
+        sink,
         "error: zip: 条目尺寸/偏移 ≥2GiB（不支持）：entry \{k}",
       )
       return ([] : Array[ZEntry])
     }
     if pos + 46 + name_len > n {
-      eprintln("error: zip: 条目名越界（entry \{k}）")
+      err_line(sink, "error: zip: 条目名越界（entry \{k}）")
       return ([] : Array[ZEntry])
     }
     let name = z_str(z_slice(data, pos + 46, name_len))
@@ -145,18 +150,18 @@ fn zip_min_entries(data : Bytes) -> Array[ZEntry] {
 
 ///|
 /// 按条目提取负载（Store/Deflate；跳过 extra 区域、不遍历 extra 链）。
-/// 返回空 `Bytes` 并打印错误表示提取失败（调用方按退出码 1 处理）。
-fn zip_min_extract(data : Bytes, e : ZEntry) -> Bytes raise {
+/// 返回空 `Bytes` 并经汇打印错误表示提取失败（调用方按退出码 1 处理）。
+fn zip_min_extract(data : Bytes, e : ZEntry, sink : Sink) -> Bytes raise {
   let lo = e.local_off
   if lo < 0 || lo + 30 > data.length() || z_u32(data, lo) != 0x04034b50 {
-    eprintln("error: zip: local 头异常：\{e.name}")
+    err_line(sink, "error: zip: local 头异常：\{e.name}")
     return b""
   }
   let name_len = z_u16(data, lo + 26)
   let extra_len = z_u16(data, lo + 28)
   let start = lo + 30 + name_len + extra_len
   if start < 0 || start + e.csize > data.length() {
-    eprintln("error: zip: 条目负载越界：\{e.name}")
+    err_line(sink, "error: zip: 条目负载越界：\{e.name}")
     return b""
   }
   if e.comp == 0 {
@@ -168,17 +173,17 @@ fn zip_min_extract(data : Bytes, e : ZEntry) -> Bytes raise {
       max_output_bytes=if e.usize > 0 { e.usize } else { 1073741824 },
     )
   } else {
-    eprintln("error: zip: 不支持的压缩方法 \{e.comp}：\{e.name}")
+    err_line(sink, "error: zip: 不支持的压缩方法 \{e.comp}：\{e.name}")
     b""
   }
 }
 
 ///|
 /// 按条目名提取；不存在返回 `None`。
-fn zip_min_get(data : Bytes, name : String) -> Bytes? raise {
-  for e in zip_min_entries(data) {
+fn zip_min_get(data : Bytes, name : String, sink : Sink) -> Bytes? raise {
+  for e in zip_min_entries(data, sink) {
     if e.name == name {
-      return Some(zip_min_extract(data, e))
+      return Some(zip_min_extract(data, e, sink))
     }
   }
   None

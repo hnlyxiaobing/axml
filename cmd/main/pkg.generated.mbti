@@ -2,13 +2,26 @@
 package "hnlyxiaobing/axml/cmd/main"
 
 // Values
+pub fn cli_run(Array[String], Bytes, Bytes?) -> CliResult
 
 // Errors
 
 // Types and methods
+pub(all) struct CliResult {
+  code : Int32
+  out : Array[String]
+  err : Array[String]
+}
+
+type DumpOpts
+
+type DumpParse
+
 type RefCtx
 
 type SemInfo
+
+type Sink
 
 type ZEntry
 

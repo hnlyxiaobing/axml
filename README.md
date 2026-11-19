@@ -1,7 +1,7 @@
 # axml · 二进制 XML 与资源表解析
 
 > 独立发布单元 ｜ L1 逆向输入 ｜ `preferred_target = wasm` ｜ Apache-2.0
-> 状态：`moon test` **135/135** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **152/152** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入；含 L4 CLI 场景 E2E 17 例，`cmd/main` 原生承载）；本文件是本仓库**唯一**说明文档。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -106,6 +106,7 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 ## 5. 命令行与验证
 
 - `moon run cmd/main --target native -- dump <apk|axml> [--view ...] [--resolve] [--json]`；输出行 `EL|` `AT|` `SEM|` `POOL|` `STR|`（完整格式见 `tests/ASSETS.md` §3）。
+- CLI 契约自动化：L4 场景 E2E 由 `cmd/main/cli_e2e_test.mbt` 在 `moon test` 原生承载（退出码 0/1/2 矩阵 + 记录行逐字节冻结 + APK 直读 + 用法错误），经公开入口 `cli_run` 断言。
 - 复验：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff。
 - 本仓库为独立 Git 仓库，文档与 CI 均自包含，不依赖工作区其他目录。
 
@@ -114,5 +115,5 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
 - 写侧闭环已覆盖 AXML（`encode`）与 ARSC（`encode_arsc`）；XML 文本→AXML 编译为明确非目标。
-- 未自动化项：CLI L4 E2E、wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料（见测试系统设计 §7/§8）。
+- 未自动化项：wasm/native 双目标等价门禁、L3 aapt2 差分与变异语料（见测试系统设计 §8；CLI L4 E2E 已于 2026-11-19 落地）。
 

@@ -116,26 +116,26 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 
 | ID | 能力/场景 | L0 | L1 | L2 | L3 | L4 | 现状(P4) | 缺口→W# |
 |---|---|---|---|---|---|---|---|---|
-| F1 | AXML chunk/节点树解析 | ✔ | ✔截断 | ✔ | ✔xmltree | ✘ | B1/B3 | CLI E2E 自动化归 L4 待建缺口 |
+| F1 | AXML chunk/节点树解析 | ✔ | ✔截断 | ✔ | ✔xmltree | ✔ | B1/B3 | L4 E2E 已落地（2026-11-19） |
 | F2 | UTF-8/16 严格字符串池 | ✔ | ✔畸形 | ✔ | ✔xmlstrings | ✘ | B2 | — |
 | F3 | resource map / namespace / styles 降级 | ✔ | ◐ | ✔ | — | ✘ | B4（namespace 映射不暴露、styles 不解析为已声明降级） | 降级已登记（W1，`docs/API.md` D3/D4） |
 | F4 | ARSC 全结构（sparse/offset16/compact/bag/library） | ✔ | ✔截断 | ✔ | ✔resources | ✘ | B5 | — |
 | F5 | Res_value 16 类型渲染 | ✔ | ◐位翻转待建 | ✔ | ✔resources | ✘ | B6/B23 | 注释已修正（W1）；位翻转 L1 待建 |
-| F6 | 引用解析（resolve_id/resolve_attr_value） | ✔ | ◐ | ✔ | ◐ | ✘ | B7/B8/B9 | 环检测口径已修正（W1）；动态引用视图 W5 已交付 |
-| F7 | qualifier 匹配（from_qualifiers/lookup_with） | ✔ | ◐ | — | ◐ | ✘ | B10（vNN 不支持） | **W3 已交付** `from_qualifiers_ext`（vNN/BCP47 等）；旧函数冻结 |
+| F6 | 引用解析（resolve_id/resolve_attr_value） | ✔ | ◐ | ✔ | ◐ | ✔ | B7/B8/B9 | 环检测口径已修正（W1）；动态引用视图 W5 已交付；L4 已覆盖 `--resolve` E2E |
+| F7 | qualifier 匹配（from_qualifiers/lookup_with） | ✔ | ◐ | — | ◐ | ◐ | B10（vNN 不支持） | **W3 已交付** `from_qualifiers_ext`（vNN/BCP47 等）；旧函数冻结；L4 覆盖 CLI `--config` 接线 |
 | F8 | bag 压平 / ?attr 主题求值 | ✔ | ✔环 | — | — | ✘ | **已实现**（W2 补 BagMissingParent 显式用例；W4 主题求值已交付） | — |
 | F9 | 动态引用映射视图 | ◐解析侧 | — | ✔library | — | ✘ | **已实现**（W5 `dynamic_ref_view` 暴露映射事实，不改写） | — |
 | F10 | 多表联合解析 | ✘ | ✘ | ◐framework-res 可解析 | — | ✘ | **已实现**（W6 `ResTableSet` + `resolve_attr_value_multi`） | — |
 | F11 | overlay/idmap | ✘ | ✘ | ✘ | — | ✘ | **已裁决非目标**（M3/M4 两次排除：idmap 为第三二进制格式，overlayable 分析属上游工具） | 声明降级，不再立项 |
 | F12 | AXML 回编 encode | ✔ | ✘ | ✔ | — | ✘ | **W8 已实现**（`encode(AxmlDoc)->Bytes`，T-W8-1/2/3 往返已落地） | — |
-| S1 | CLI dump 预期场景（EL/AT/SEM/POOL/STR） | ✘ | — | ✔黄金 | ✔badging | **✘待建** | B13/B22（cmd/main 无测试） | E2E→W3 配套（T-W3-3/4） |
-| S2 | CLI `--config` 设备配置场景 | ✘ | — | — | ◐ | ✘待建 | **W3 已实现**（`--config` 已接入，走 `lookup_with`；T-W3-1/2 绿） | L4 E2E 自动化待建（T-W3-3/5 未落地） |
-| S3 | CLI `--entry` APK 直读场景 | ✘ | — | ◐ | — | ✘待建 | zipmin 无自动化测试 | 归 L4 待建缺口 |
-| C1 | 尾随垃圾/截断必拒（fail-closed） | ✔ | ✔ | ✔ | — | ◇拒绝语料 | B1/B19 | 拒绝语料归 L4 待建 |
+| S1 | CLI dump 预期场景（EL/AT/SEM/POOL/STR） | ✘ | — | ✔黄金 | ✔badging | **✔** | B13/B22（cmd/main 无测试） | **L4 已落地**（tree/pool/sem/json 记录行逐字节冻结，T-W3-4） |
+| S2 | CLI `--config` 设备配置场景 | ✘ | — | — | ◐ | ✔ | **W3 已实现**（`--config` 已接入，走 `lookup_with`；T-W3-1/2 绿） | **L4 已落地**（T-W3-3/5 已并入） |
+| S3 | CLI `--entry` APK 直读场景 | ✘ | — | ◐ | — | ✔ | zipmin 已由 L4 覆盖 | **L4 已落地**（APK 直读 == 裸 dump、`--entry`、条目缺失 → 退出码 1） |
+| C1 | 尾随垃圾/截断必拒（fail-closed） | ✔ | ✔ | ✔ | — | ✔ | B1/B19 | L4 已覆盖 CLI 侧（解析失败/截断 ZIP → 退出码 1）；大型变异语料仍归 L1 脚本层 |
 | C2 | 任意畸形不 panic/内存有界 | ✔ | ✔AXML 全前缀；◐ARSC 全 fixture 扫描待建 | ✔ | — | ◇ | B1/B16/B19 | ARSC 全 fixture 截断扫描归 L1 脚本层待建 |
-| C3 | 容器信任不越界（zipmin 无 CRC 显式声明） | ✘ | — | — | — | ◇ | B16（注释漂移） | 声明已修正（W1）；「无完整性结论输出」E2E 断言归 L4 待建 |
+| C3 | 容器信任不越界（zipmin 无 CRC 显式声明） | ✘ | — | — | — | ✔ | B16（注释漂移） | 声明已修正（W1）；**L4 已落地**「无容器完整性结论输出」断言（记录行前缀白名单 + APK 输出 == 裸 dump） |
 | C4 | 许可红线（F-D 不入库） | — | — | ✔登记 | — | — | **已落地**（W1 重建 ASSETS.md 哈希登记，T-W1-2） | — |
-| C5 | 契约冻结（快照/记录行/退出码） | ◐ | — | — | — | ✘待建 | B13/B21/B22 | 快照门禁已有；README 记录行已修（W1）；记录行冻结/退出码 E2E 归 L4 待建 |
+| C5 | 契约冻结（快照/记录行/退出码） | ◐ | — | — | — | ✔ | B13/B21/B22 | 快照门禁已有；README 记录行已修（W1）；**L4 已落地**记录行逐字节冻结 + 退出码 0/1/2 矩阵 |
 | C6 | 双目标等价 | — | — | — | — | — | B22（CI 仅 wasm） | L5 差分待建（§8.2） |
 
 ### 6.2 错误变体触发簿记（20/20 强制，现状 20/20）
@@ -178,18 +178,18 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 
 ## 7. L4 CLI 场景 E2E
 
-现状：`cmd/main` 无任何测试（B22），下表全部待建，随 W3 落地（T-W3-3/T-W3-4/T-W3-5 为其子集）；W1 先保证帮助文本引用实存（T-W1-5）。
+**现状（2026-11-19 落地）**：B22 已闭合。L4 按 §9「二选一，倾向前者」选择 **`moon test` 原生承载**，落在 `cmd/main/cli_e2e_test.mbt`（17 执行用例），无脚本层依赖。承载方式：`main.mbt` 做行为保持型重构，把「选项解析 + 校验 + 解析 + 渲染」收敛为 `cmd_dump_core`（输出经 `Sink`），并以公开入口 `cli_run(args, input : Bytes, arsc : Bytes?) -> CliResult` 接受**内存字节**输入、捕获 stdout/stderr 行与退出码；真实文件入口 `cmd_dump`/`run` 逐字节契约不变。夹具全部程序化构造（合成 `AxmlDoc`/`ResTable` 经 `encode`/`encode_arsc` 往返；手工构造 Store 型 ZIP 覆盖 APK 直读），不依赖外部样本。
 
-| 场景 | 命令序列 | 断言要点（退出码+输出） |
-|---|---|---|
-| 正常 dump | `main <fixture.axml>` | 退出码 0；记录行仅 `EL\|AT\|SEM\|POOL\|STR\|` 前缀；与黄金逐字节一致 |
-| 引用解析 | `main <fixture> --resolve --arsc <table>` | 退出码 0；AT 值列为可读文本；无表可解析项保持 `@0x%08x` |
-| 设备配置（W3 后） | `main <fixture> --resolve --arsc <table> --config zh` | 退出码 0；zh 配置命中值；无匹配回退默认（T-W3-3） |
-| 无新选项冻结 | 全部既有命令组合 | 输出逐字节与基线一致（T-W3-4，防契约漂移） |
-| APK 直读 | `main <apk> --entry AndroidManifest.xml` | 退出码 0；与裸 AXML dump 一致；**无容器完整性结论输出**（C3） |
-| 用法错误 | `--arsc` 缺 `--resolve`；`--resolve` 无表；`--entry` 对非 ZIP；`--config` 缺 `--resolve`（W3 后） | 退出码 **2**，逐例断言（B13；T-W3-5） |
-| 解析失败 | 畸形/截断 fixture | 退出码 **1**；stderr 含带偏移错误文本；stdout 无部分树输出 |
-| 安全拒绝语料 | 尾随垃圾/伪造 attributeCount/压缩炸弹样本 | 退出码 1 或 2（按入口），不 panic、不挂起、无落盘 |
+| 场景 | 命令序列 | 断言要点（退出码+输出） | 落地用例 |
+|---|---|---|---|
+| 正常 dump | `main <fixture.axml>` | 退出码 0；记录行仅 `EL\|AT\|SEM\|POOL\|STR\|` 前缀；与黄金逐字节一致 | tree/pool/sem 记录行逐字节冻结（3 例）；`--json` 单行（1 例） |
+| 引用解析 | `main <fixture> --resolve --arsc <table>` | 退出码 0；AT 值列为可读文本；无表可解析项保持 `@0x%08x` | `--resolve --arsc` → `MyApp`（1 例） |
+| 设备配置（W3 后） | `main <fixture> --resolve --arsc <table> --config zh` | 退出码 0；zh 配置命中值；无匹配回退默认（T-W3-3） | `--config zh-rCN` 走 `lookup_with`（1 例）；非法限定符 → 退出码 1（1 例） |
+| 无新选项冻结 | 全部既有命令组合 | 输出逐字节与基线一致（T-W3-4，防契约漂移） | 未知选项 → 退出码 2（1 例）；真实 CLI 回归复核 |
+| APK 直读 | `main <apk> --entry AndroidManifest.xml` | 退出码 0；与裸 AXML dump 一致；**无容器完整性结论输出**（C3） | APK 直读 == 裸 dump（1 例）；`--entry` 指定（1 例）；条目缺失 → 退出码 1（1 例） |
+| 用法错误 | `--arsc` 缺 `--resolve`；`--resolve` 无表；`--entry` 对非 ZIP；`--config` 缺 `--resolve`（W3 后） | 退出码 **2**，逐例断言（B13；T-W3-5） | 用法错误矩阵 9 例 + 无输入字节 2 例 |
+| 解析失败 | 畸形/截断 fixture | 退出码 **1**；stderr 含带偏移错误文本；stdout 无部分树输出 | 非法 AXML（1 例）；截断 ZIP（1 例） |
+| 安全拒绝语料 | 尾随垃圾/伪造 attributeCount/压缩炸弹样本 | 退出码 1 或 2（按入口），不 panic、不挂起、无落盘 | APK 条目缺失/截断 ZIP（退出码 1）；大型压缩炸弹语料仍归 L1 脚本层 |
 
 记录行契约冻结口径（B13，变更即破坏）：`EL|depth|ns|name`、`AT|depth|elem|ns|name|value`、`SEM|key|value`、`POOL|count`、`STR|i|text`。退出码矩阵 **0/1/2 逐例断言**；README §5 与本表同提交更新（W1 修正 DEX 记录行误植后冻结）。
 
@@ -214,7 +214,7 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 ```powershell
 moon check --deny-warn
 moon build
-moon test            # 基线：135/135 执行通过 + 3 #skip（2026-11-19）
+moon test            # 基线：152/152 执行通过 + 3 #skip（2026-11-19，L4 落地后）
 moon fmt --check
 moon info
 git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti
@@ -234,7 +234,7 @@ git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti
 - [ ] L1：全 fixture 截断扫描 + 位翻转 + 变异语料 ≥1000（脚本层，SKIPPED 纪律）
 - [ ] L2：双通道一致性脚本（W2 脚本层，T-W2-3 仍待建：on-disk `tests/fixtures/*` ↔ 内嵌字节比对未自动化）；内嵌字节单通道已由 `moon test` 回归，on-disk 第二通道尚未自动比对
 - [ ] L3：aapt2 差分本地复核 + 版本登记（可选，SKIPPED 纪律）
-- [ ] L4：CLI 退出码矩阵 0/1/2 逐例 + 记录行冻结（cmd/main 无自动化测试，T-W3-3/4/5 未落地；归入 L4 待建缺口）
+- [x] L4：CLI 退出码矩阵 0/1/2 逐例 + 记录行冻结（2026-11-19 落地：`cmd/main/cli_e2e_test.mbt` 17 例，`moon test` 原生承载；T-W3-3/4/5 已并入；真实 CLI 回归复核）
 - [ ] L5：快照纯加法（每包已过）；双目标差分（待建）；变异自检 3 缺陷红→绿（待建）
 - [ ] R：仓库外样本 runner + 哈希门禁（真机 `#skip` 保留）
 - [x] W8 对应行（F12、P11）：**已实现**（encode 往返 T-W8-1/2/3 已落地并进入通过计数）；W9 对应行（arsc encode_arsc 值级回编）**已实现**（T-W9-1/2/3/4 已落地）。
