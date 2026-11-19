@@ -100,6 +100,7 @@ pub(all) struct ResConfig {
   raw : Bytes
 }
 pub fn ResConfig::from_qualifiers(String) -> Self raise ArscError
+pub fn ResConfig::from_qualifiers_ext(String) -> Self raise ArscError
 pub fn ResConfig::is_better_than(Self, Self, Self) -> Bool
 pub fn ResConfig::is_default(Self) -> Bool
 pub fn ResConfig::matches(Self, Self) -> Bool

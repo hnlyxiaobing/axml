@@ -15,7 +15,7 @@ fn usage_text() -> String {
     "",
     "用法:",
     "  \{tool_name} dump <apk|axml文件> [--view tree|sem|pool] [--entry <name>]",
-    "      [--resolve] [--arsc <resources.arsc>] [--json]",
+    "      [--resolve] [--arsc <resources.arsc>] [--config <qualifiers>] [--json]",
     "      tree（默认）：manifest 树，EL|depth|ns|name + AT|depth|elem|ns|name|value",
     "      sem：语义摘要，SEM|package/versionCode/versionName/minSdk/targetSdk/label/activity/permission",
     "      pool：字符串池，POOL|count + STR|i|text",
@@ -23,6 +23,8 @@ fn usage_text() -> String {
     "      --resolve 把资源引用解析为人类可读值（@string/app_name → MyApp；",
     "      名字级 @type/name 与原值 @0x%08x 为降级回退）；资源表取 --arsc <file>，",
     "      缺省时取 APK 内 resources.arsc",
+    "      --config <qualifiers> 设备限定符串（扩展版），指定后资源匹配走 lookup_with；",
+    "      例：--config sw600dp-port-v21-b+en+US",
     "  \{tool_name} --help",
     "",
     "输入: .apk（ZIP 容器，自动取清单条目）或原始二进制 .axml/.xml（按魔数判别）。",
@@ -78,6 +80,7 @@ async fn cmd_dump(rest : ArrayView[String]) -> Int32 {
   let mut resolve = false
   let mut arsc_path : String? = None
   let mut json = false
+  let mut config : String? = None
   for xs = rest {
     match xs {
       ["--json", .. r] => {
@@ -98,6 +101,10 @@ async fn cmd_dump(rest : ArrayView[String]) -> Int32 {
       }
       ["--arsc", v, .. r] => {
         arsc_path = Some(v)
+        continue r
+      }
+      ["--config", v, .. r] => {
+        config = Some(v)
         continue r
       }
       ["--help", ..] => {
@@ -140,6 +147,15 @@ async fn cmd_dump(rest : ArrayView[String]) -> Int32 {
   if arsc_path is Some(_) && !resolve {
     eprintln("error: --arsc 需要与 --resolve 同用")
     return 2
+  }
+  if config is Some(_) && !resolve {
+    eprintln("error: --config 需要与 --resolve 同用")
+    return 2
+  }
+  // 构造设备配置（--config 指定时走扩展版解析）
+  let mut dev_config : @axml.ResConfig? = None
+  if config is Some(c) {
+    dev_config = Some(@axml.ResConfig::from_qualifiers_ext(c))
   }
   let (data, ok) = read_input(in_path)
   if !ok {
@@ -186,7 +202,7 @@ async fn cmd_dump(rest : ArrayView[String]) -> Int32 {
     }
   }
   let doc = @axml.parse(axml_bytes)
-  let ctx = RefCtx::{ doc, table, resolve, }
+  let ctx = RefCtx::{ doc, table, resolve, dev_config, }
   if json {
     if view == "tree" {
       let nodes : Array[String] = []

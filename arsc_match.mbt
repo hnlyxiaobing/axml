@@ -19,6 +19,25 @@
 /// `ldpi`/`mdpi`/`hdpi`/`xhdpi`/`xxhdpi`/`xxxhdpi`/`nodpi`/`anydpi`/`NNNdpi`。
 /// 未知 token 报 `BadQualifier(token)`；空串返回默认配置。
 pub fn ResConfig::from_qualifiers(s : String) -> ResConfig raise ArscError {
+  parse_quals(s, false)
+}
+
+///|
+/// 限定符扩展版：在 `from_qualifiers` 子集基础上增加
+/// `vNN`（sdk_version）、`long`/`notlong`、`round`/`notround`、
+/// `widecg`/`nowidecg`、`highdr`/`lowdr`、
+/// `b+<lang>[+<region>]`（BCP47 子集）、
+/// `navhidden`/`navexposed`、`keysexposed`/`keyssoft`/`keyshidden`、
+/// `qwerty`/`12key`、`dpad`/`wheel`/`nonav`、
+/// `finger`/`nofinger`、`stylus`/`nostylus`、`trackball`/`notouch`。
+/// 未知 token 仍复用 `BadQualifier`。
+pub fn ResConfig::from_qualifiers_ext(s : String) -> ResConfig raise ArscError {
+  parse_quals(s, true)
+}
+
+///|
+/// 限定符解析共享实现：`allow_ext=true` 时接受扩展 token。
+fn parse_quals(s : String, allow_ext : Bool) -> ResConfig raise ArscError {
   let cfg : ResConfig = {
     size: 64,
     mcc: 0,
@@ -47,8 +66,21 @@ pub fn ResConfig::from_qualifiers(s : String) -> ResConfig raise ArscError {
     return cfg
   }
   let mut out = cfg
-  let mut cur = ""
+  let tokens = split_tokens(s)
+  for t in tokens {
+    if t.length() == 0 {
+      raise ArscError::BadQualifier(t)
+    }
+    out = apply_qual_token(out, t, allow_ext)
+  }
+  out
+}
+
+///|
+/// 按 `-` 拆分限定符串（不含 `-` 的 BCP47 `b+` 整体为单 token）。
+fn split_tokens(s : String) -> Array[String] {
   let tokens : Array[String] = []
+  let mut cur = ""
   for c in s {
     if c == '-' {
       tokens.push(cur)
@@ -58,89 +90,355 @@ pub fn ResConfig::from_qualifiers(s : String) -> ResConfig raise ArscError {
     }
   }
   tokens.push(cur)
-  for t in tokens {
-    if t.length() == 0 {
+  tokens
+}
+
+///|
+/// 单个限定符 token 的解析与应用。`allow_ext` 决定是否接受扩展 token。
+fn apply_qual_token(
+  out : ResConfig,
+  t : String,
+  allow_ext : Bool,
+) -> ResConfig raise ArscError {
+  // —— BCP47 子集：b+en 或 b+en+US 整体一个 token（含 '+' 不含 '-'）——
+  if t.has_prefix("b+") && t.length() > 2 {
+    if !allow_ext {
       raise ArscError::BadQualifier(t)
     }
-    if t.has_prefix("mcc") && t.length() > 3 {
-      out = { ..out, mcc: qual_int(t, 3), }
-    } else if t.has_prefix("mnc") && t.length() > 3 {
-      out = { ..out, mnc: qual_int(t, 3), }
-    } else if t.has_prefix("sw") && t.has_suffix("dp") && t.length() > 4 {
-      out = { ..out, smallest_screen_width_dp: qual_int(t, 2), }
-    } else if t.has_prefix("w") && t.has_suffix("dp") && t.length() > 3 {
-      out = { ..out, screen_width_dp: qual_int(t, 1), }
-    } else if t.has_prefix("h") && t.has_suffix("dp") && t.length() > 3 {
-      out = { ..out, screen_height_dp: qual_int(t, 1), }
-    } else if t == "port" {
-      out = { ..out, orientation: 1, }
-    } else if t == "land" {
-      out = { ..out, orientation: 2, }
-    } else if t == "night" {
-      out = { ..out, ui_mode: 0x20, }
-    } else if t == "notnight" {
-      out = { ..out, ui_mode: 0x10, }
-    } else if t == "car" {
-      out = { ..out, ui_mode: 0x03, }
-    } else if t == "desk" {
-      out = { ..out, ui_mode: 0x02, }
-    } else if t == "television" {
-      out = { ..out, ui_mode: 0x04, }
-    } else if t == "appliance" {
-      out = { ..out, ui_mode: 0x05, }
-    } else if t == "watch" {
-      out = { ..out, ui_mode: 0x06, }
-    } else if t == "ldpi" {
-      out = { ..out, density: 120, }
-    } else if t == "mdpi" {
-      out = { ..out, density: 160, }
-    } else if t == "tvdpi" {
-      out = { ..out, density: 213, }
-    } else if t == "hdpi" {
-      out = { ..out, density: 240, }
-    } else if t == "xhdpi" {
-      out = { ..out, density: 320, }
-    } else if t == "xxhdpi" {
-      out = { ..out, density: 480, }
-    } else if t == "xxxhdpi" {
-      out = { ..out, density: 640, }
-    } else if t == "nodpi" {
-      out = { ..out, density: 0xFFFF, }
-    } else if t == "anydpi" {
-      out = { ..out, density: 0xFFFE, }
-    } else if t.has_suffix("dpi") && t.length() > 3 {
-      out = { ..out, density: qual_int(t, 0), }
-    } else if t.has_prefix("r") && t.length() >= 3 && t.length() <= 4 {
-      let region = t[1:].to_owned()
-      if region.length() == 2 {
-        for c in region {
-          if !is_ascii_alpha(c) {
-            raise ArscError::BadQualifier(t)
-          }
-        }
-      } else if region.length() == 3 {
-        for c in region {
-          if c < '0' || c > '9' {
-            raise ArscError::BadQualifier(t)
-          }
-        }
-      } else {
+    let rest = t[2:].to_owned()
+    let idx = find_plus(rest)
+    if idx == -1 {
+      validate_bcp47_lang(rest)
+      return { ..out, language: rest, }
+    }
+    let lang = rest[:idx].to_owned()
+    let region = rest[idx + 1:].to_owned()
+    validate_bcp47_lang(lang)
+    validate_bcp47_region(region)
+    return { ..out, language: lang, country: region, }
+  }
+  // —— 前缀 token ——
+  if t.has_prefix("mcc") && t.length() > 3 {
+    return { ..out, mcc: qual_int(t, 3), }
+  }
+  if t.has_prefix("mnc") && t.length() > 3 {
+    return { ..out, mnc: qual_int(t, 3), }
+  }
+  if t.has_prefix("sw") && t.has_suffix("dp") && t.length() > 4 {
+    return { ..out, smallest_screen_width_dp: qual_int(t, 2), }
+  }
+  if t.has_prefix("w") && t.has_suffix("dp") && t.length() > 3 {
+    return { ..out, screen_width_dp: qual_int(t, 1), }
+  }
+  if t.has_prefix("h") && t.has_suffix("dp") && t.length() > 3 {
+    return { ..out, screen_height_dp: qual_int(t, 1), }
+  }
+  if t.has_prefix("v") && t.length() > 1 && allow_ext {
+    let num = t[1:].to_owned()
+    for c in num {
+      if c < '0' || c > '9' {
         raise ArscError::BadQualifier(t)
       }
-      out = { ..out, country: region, }
-    } else if t.length() == 2 || t.length() == 3 {
-      // 语言码（ISO 639-1 / 639-2/3）
-      for c in t {
+    }
+    return { ..out, sdk_version: num_to_int(num), }
+  }
+  if t.has_suffix("dp") && t.length() > 3 {
+    return { ..out, density: qual_int(t, 0), }
+  }
+  if t.has_prefix("r") && t.length() >= 3 && t.length() <= 4 {
+    let region = t[1:].to_owned()
+    if region.length() == 2 {
+      for c in region {
         if !is_ascii_alpha(c) {
           raise ArscError::BadQualifier(t)
         }
       }
-      out = { ..out, language: t, }
+    } else if region.length() == 3 {
+      for c in region {
+        if c < '0' || c > '9' {
+          raise ArscError::BadQualifier(t)
+        }
+      }
     } else {
       raise ArscError::BadQualifier(t)
     }
+    return { ..out, country: region, }
   }
-  out
+  // —— 精确 token ——
+  if t == "port" {
+    return { ..out, orientation: 1, }
+  }
+  if t == "land" {
+    return { ..out, orientation: 2, }
+  }
+  if t == "night" {
+    return { ..out, ui_mode: 0x20, }
+  }
+  if t == "notnight" {
+    return { ..out, ui_mode: 0x10, }
+  }
+  if t == "car" {
+    return { ..out, ui_mode: 0x03, }
+  }
+  if t == "desk" {
+    return { ..out, ui_mode: 0x02, }
+  }
+  if t == "television" {
+    return { ..out, ui_mode: 0x04, }
+  }
+  if t == "appliance" {
+    return { ..out, ui_mode: 0x05, }
+  }
+  if t == "watch" {
+    return { ..out, ui_mode: 0x06, }
+  }
+  if t == "ldpi" {
+    return { ..out, density: 120, }
+  }
+  if t == "mdpi" {
+    return { ..out, density: 160, }
+  }
+  if t == "tvdpi" {
+    return { ..out, density: 213, }
+  }
+  if t == "hdpi" {
+    return { ..out, density: 240, }
+  }
+  if t == "xhdpi" {
+    return { ..out, density: 320, }
+  }
+  if t == "xxhdpi" {
+    return { ..out, density: 480, }
+  }
+  if t == "xxxhdpi" {
+    return { ..out, density: 640, }
+  }
+  if t == "nodpi" {
+    return { ..out, density: 0xFFFF, }
+  }
+  if t == "anydpi" {
+    return { ..out, density: 0xFFFE, }
+  }
+  // —— 扩展 token（allow_ext=true 才接受）——
+  if t == "long" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, screen_layout: out.screen_layout | 0x08, }
+  }
+  if t == "notlong" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, screen_layout: out.screen_layout & (0x08 : Int32).lnot(), }
+  }
+  if t == "round" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, screen_layout: out.screen_layout | 0x04, }
+  }
+  if t == "notround" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, screen_layout: out.screen_layout & (0x04 : Int32).lnot(), }
+  }
+  if t == "widecg" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, screen_layout: out.screen_layout | 0xC000, }
+  }
+  if t == "nowidecg" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return {
+      ..out,
+      screen_layout: out.screen_layout & (0xC000 : Int32).lnot(),
+    }
+  }
+  if t == "highdr" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, color_mode: out.color_mode | 0x08, }
+  }
+  if t == "lowdr" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, color_mode: out.color_mode | 0x04, }
+  }
+  if t == "navhidden" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 0x10, }
+  }
+  if t == "navexposed" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 0x20, }
+  }
+  if t == "keysexposed" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, keyboard: 1, }
+  }
+  if t == "keyssoft" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, keyboard: 2, input_flags: out.input_flags | 0x03, }
+  }
+  if t == "keyshidden" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return {
+      ..out,
+      keyboard: 3,
+      input_flags: out.input_flags & (0x03 : Int32).lnot(),
+    }
+  }
+  if t == "qwerty" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, input_flags: out.input_flags | 0x04, }
+  }
+  if t == "12key" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, input_flags: out.input_flags & (0x04 : Int32).lnot(), }
+  }
+  if t == "dpad" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 1, }
+  }
+  if t == "wheel" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 2, }
+  }
+  if t == "nonav" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 0, }
+  }
+  if t == "finger" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, touchscreen: 1, }
+  }
+  if t == "nofinger" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, touchscreen: 2, }
+  }
+  if t == "stylus" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, touchscreen: 3, }
+  }
+  if t == "nostylus" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, touchscreen: 4, }
+  }
+  if t == "trackball" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, navigation: 3, }
+  }
+  if t == "notouch" {
+    if !allow_ext {
+      raise ArscError::BadQualifier(t)
+    }
+    return { ..out, touchscreen: 0, }
+  }
+  // —— 语言码（ISO 639-1/639-2/3）——
+  if t.length() == 2 || t.length() == 3 {
+    for c in t {
+      if !is_ascii_alpha(c) {
+        raise ArscError::BadQualifier(t)
+      }
+    }
+    return { ..out, language: t, }
+  }
+  raise ArscError::BadQualifier(t)
+}
+
+///|
+/// 在 `s` 中查找第一个 `+` 的下标（-1 表示未找到）。
+fn find_plus(s : String) -> Int32 {
+  let mut i = 0
+  for c in s {
+    if c == '+' {
+      return i
+    }
+    i = i + 1
+  }
+  -1
+}
+
+///|
+/// BCP47 语言码验证（2–3 个 ASCII alpha）。
+fn validate_bcp47_lang(lang : String) -> Unit raise ArscError {
+  if lang.length() < 2 || lang.length() > 3 {
+    raise ArscError::BadQualifier("b+lang")
+  }
+  for c in lang {
+    if !is_ascii_alpha(c) {
+      raise ArscError::BadQualifier("b+lang")
+    }
+  }
+  ()
+}
+
+///|
+/// BCP47 地区码验证（2 个 alpha 或 3 位数字）。
+fn validate_bcp47_region(region : String) -> Unit raise ArscError {
+  if region.length() == 2 {
+    for c in region {
+      if !is_ascii_alpha(c) {
+        raise ArscError::BadQualifier("b+region")
+      }
+    }
+  } else if region.length() == 3 {
+    for c in region {
+      if c < '0' || c > '9' {
+        raise ArscError::BadQualifier("b+region")
+      }
+    }
+  } else {
+    raise ArscError::BadQualifier("b+region")
+  }
+  ()
+}
+
+///|
+/// `num`（全数字串）→ Int32。
+fn num_to_int(s : String) -> Int32 {
+  let mut v = 0
+  for c in s {
+    v = v * 10 + (c.to_int() - '0'.to_int())
+  }
+  v
 }
 
 ///|

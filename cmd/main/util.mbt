@@ -98,22 +98,37 @@ fn int_dec(v : UInt32) -> String {
 }
 
 ///|
-/// 资源引用解析上下文：`--resolve` 开启时把 Reference/Attribute 属性解析为人类可读值。
+/// 资源引用解析上下文：`--resolve` 开启时把 Reference/Attribute 属性解析为人类可读值；
+/// `dev_config`（来自 `--config`）指定后资源匹配走 `lookup_with`（扩展版 qualifier 匹配）。
 struct RefCtx {
   doc : @axml.AxmlDoc
   table : @axml.ResTable?
   resolve : Bool
+  dev_config : @axml.ResConfig?
 }
 
 ///|
 /// 资源引用名字级解析（resources.arsc 链；`@type/name`，如 `@string/app_name`）。
 /// 命中 -> `@type/name`；未命中/无表 -> `@0x%08x`。作为 resolve_attr 的降级回退。
-fn resolve_res_ref(table : @axml.ResTable?, res_id : UInt32) -> String {
+/// `dev_config` 指定时走 `lookup_with`（匹配设备限定符）。
+fn resolve_res_ref(
+  table : @axml.ResTable?,
+  res_id : UInt32,
+  dev_config : @axml.ResConfig?,
+) -> String {
   match table {
     Some(t) =>
-      match t.lookup(res_id) {
-        Some(hit) => "@" + hit.type_name + "/" + hit.entry_name
-        None => "@0x" + hex8(res_id)
+      match dev_config {
+        Some(cfg) =>
+          match t.lookup_with(res_id, cfg) {
+            Some(hit) => "@" + hit.type_name + "/" + hit.entry_name
+            None => "@0x" + hex8(res_id)
+          }
+        None =>
+          match t.lookup(res_id) {
+            Some(hit) => "@" + hit.type_name + "/" + hit.entry_name
+            None => "@0x" + hex8(res_id)
+          }
       }
     None => "@0x" + hex8(res_id)
   }
@@ -138,7 +153,7 @@ fn resolve_attr(ctx : RefCtx, a : @axml.XmlAttribute) -> String {
         Unresolved(_) =>
           if r.text.has_prefix("@0x") {
             match r.id {
-              Some(id) => resolve_res_ref(ctx.table, id)
+              Some(id) => resolve_res_ref(ctx.table, id, ctx.dev_config)
               None => r.text
             }
           } else {
