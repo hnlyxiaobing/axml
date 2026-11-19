@@ -12,6 +12,8 @@ pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
 
+pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr raise ArscError
+
 // Errors
 #derive(@debug.Debug)
 pub suberror ArscError {
@@ -206,6 +208,7 @@ pub(all) enum ResolveOrigin {
   Literal
   FromId
   FromName
+  FromTheme
   Unresolved(String)
 }
 
