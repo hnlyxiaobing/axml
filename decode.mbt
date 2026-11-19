@@ -111,7 +111,7 @@ fn decode_utf8(
   if off < 0 || len < 0 || off + len > data.length() {
     raise UnexpectedEof(off)
   }
-  let builder = StringBuilder(size_hint=len)
+  let builder = StringBuilder(capacity=len)
   let end = off + len
   let mut i = off
   while i < end {
@@ -199,7 +199,7 @@ fn decode_utf16(
     units > (data.length() - off) / 2 {
     raise UnexpectedEof(off)
   }
-  let builder = StringBuilder(size_hint=units)
+  let builder = StringBuilder(capacity=units)
   let mut i = 0
   while i < units {
     let base = off + 2 * i

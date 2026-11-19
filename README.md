@@ -12,7 +12,7 @@
 
 - AXML chunk（字符串池 / resource map / namespace / start-end element）解析与 tree / sem / pool 三种视图
 - `resources.arsc` 全链：package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
-- qualifier 匹配与 aapt2 式最优匹配、引用链深度限制与环检测
+- qualifier 匹配与 aapt2 式最优匹配、引用链深度上限 + 自引用检查（bag/attr 链带环检测）
 - `--resolve` 把资源引用解析为可读值（名字级 `@type/name` → 最终值 → `@0x%08x` 降级）
 - `axml-cli dump`（`--view tree|sem|pool` / `--entry` / `--resolve` / `--arsc` / `--json`）
 
@@ -83,7 +83,7 @@ pub fn XmlNode::attrs(Self) -> Array[XmlAttribute]
 
 ## 5. 命令行与验证
 
-- `moon run cmd/main --target native -- dump <apk|axml> [--view ...] [--resolve] [--json]`；输出行 `EL|` `AT|` `SEM|` `POOL|` `HDR|` `CLZ|` `ANN|` `SVC|` `XREF|` `MREF|`。
+- `moon run cmd/main --target native -- dump <apk|axml> [--view ...] [--resolve] [--json]`；输出行 `EL|` `AT|` `SEM|` `POOL|` `STR|`（完整格式见 `tests/ASSETS.md` §3）。
 - 复验：`moon clean` → `moon check --deny-warn` → `moon build` → `moon test` → `moon fmt --check` → `moon info` 后检查 `pkg.generated.mbti` 无意外 diff。
 - 本仓库为独立 Git 仓库，文档与 CI 均自包含，不依赖工作区其他目录。
 

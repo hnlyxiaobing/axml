@@ -5,7 +5,11 @@
 
 ///|
 fn mr_pool(strings : Array[String]) -> @axml.StringPool {
-  { encoding: @axml.StringEncoding::Utf8, strings, styles: Bytes::new(0), }
+  {
+    encoding: @axml.StringEncoding::Utf8,
+    strings,
+    styles: Bytes::make(0, b'\x00'),
+  }
 }
 
 ///|
@@ -66,7 +70,7 @@ fn mr_table() -> @axml.ResTable {
     screen_height_dp: 0,
     locale_script: "",
     color_mode: 0,
-    raw: Bytes::new(0),
+    raw: Bytes::make(0, b'\x00'),
   }
   let entries : Array[@axml.ResEntry?] = [
     Some(
@@ -411,6 +415,61 @@ fn mr_bagcycle_table() -> @axml.ResTable {
     type_id_offset: 0,
     type_pool: mr_pool(["style"]),
     key_pool: mr_pool(["Self"]),
+    types: [
+      {
+        id: 1,
+        types_count: 1,
+        entry_count: 1,
+        spec_flags: [0x40000000U],
+        configs: [{ id: 1, flags: 0, config, entries, }],
+      },
+    ],
+    libraries: [],
+  }
+  { global_pool: mr_pool([]), packages: [pkg], package_count: 1, }
+}
+
+///|
+/// 错误路径：BagMissingParent 显式用例——根条目存在且为 Complex，
+/// 但其 parent id 在表中不存在（表仅有 root entry，无 parent entry）。
+test "r4 arsc: 压平 BagMissingParent" {
+  let table = mr_bagmissingparent_table()
+  let def = mr_default()
+  let mut got_parent = 0U
+  let mut raised = false
+  ignore(table.flatten_bag(0x7f010000U, def)) catch {
+    @axml.ArscError::BagMissingParent(id) => {
+      raised = true
+      got_parent = id
+    }
+    _ => ()
+  }
+  assert_true(raised, msg="parent 缺失应显式抛出 BagMissingParent")
+  assert_eq(
+    got_parent,
+    0x7f010099U,
+    msg="BagMissingParent 须携带缺失的 parent id",
+  )
+}
+
+///|
+/// BagMissingParent 样本表：一个 bag（id=0x7f010000）存在且为 Complex，
+/// parent 指向 0x7f010099——后者在表中不存在（entries 只有 1 项）。
+fn mr_bagmissingparent_table() -> @axml.ResTable {
+  let config = mr_default()
+  let entries : Array[@axml.ResEntry?] = [
+    Some(
+      mr_bag(0x7f010099, [
+        mr_map(0x7f020000, mr_value(@axml.ResDataType::IntDec, 42)),
+      ]),
+    ),
+  ]
+  let pkg : @axml.ResPackage = {
+    id: 0x7f,
+    name: "miss",
+    type_id_offset: 0,
+    type_pool: mr_pool(["style"]),
+    key_pool: mr_pool(["Orphan"]),
     types: [
       {
         id: 1,

@@ -629,7 +629,7 @@ fn unpack_locale(
   let high = r_u8(data, off, limit)
   let low = r_u8(data, off + 1, limit)
   if (high & 0x80) == 0 {
-    let builder = StringBuilder(size_hint=2)
+    let builder = StringBuilder(capacity=2)
     if high != 0 {
       builder.write_char(schar(high, off))
       if low != 0 {
@@ -642,7 +642,7 @@ fn unpack_locale(
   let first = (low & 0x1F) + base - 1
   let second = (((low >> 5) | ((high & 0x03) << 3)) & 0x1F) + base - 1
   let third = ((high >> 2) & 0x1F) + base - 1
-  let builder = StringBuilder(size_hint=3)
+  let builder = StringBuilder(capacity=3)
   builder.write_char(schar(first, off))
   builder.write_char(schar(second, off))
   builder.write_char(schar(third, off))
@@ -652,7 +652,7 @@ fn unpack_locale(
 ///|
 /// 4 字节 ASCII 串（localeScript），遇 NUL 截断。
 fn ascii4(data : Bytes, off : Int32, limit : Int32) -> String raise ArscError {
-  let builder = StringBuilder(size_hint=4)
+  let builder = StringBuilder(capacity=4)
   let mut i = 0
   while i < 4 {
     let c = r_u8(data, off + i, limit)

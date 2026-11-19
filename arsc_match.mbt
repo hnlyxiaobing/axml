@@ -41,7 +41,7 @@ pub fn ResConfig::from_qualifiers(s : String) -> ResConfig raise ArscError {
     screen_height_dp: 0,
     locale_script: "",
     color_mode: 0,
-    raw: Bytes::new(0),
+    raw: Bytes::make(0, b'\x00'),
   }
   if s == "" {
     return cfg

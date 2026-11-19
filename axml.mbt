@@ -121,7 +121,7 @@ pub type NodeIndex = Int32
 ///   字节偏移。偏移语义：`UnexpectedEof(offset)` 指被截断项的起始偏移；
 ///   `BadChunkType` / `BadHeaderSize` 的 offset 指 chunk 起始（外层头部为 0）。
 /// - 线程：无可变全局状态，可并发调用；返回值为只读，可跨线程共享。
-/// - 降级策略（docs/DESIGN.md §7）：未知 chunk 类型按 headerSize/size 跳过；
+/// - 降级策略（见 docs/API.md §1）：未知 chunk 类型按 headerSize/size 跳过；
 ///   厂商变体布局（attributeStart/attributeSize < 20）以 `VendorVariant` 报告；
 ///   未知字符串池标志位以 `UnsupportedEncoding` 报告。
 /// - 非目标：不解析资源引用、不提供 manifest 语义、不回编、不处理 resources.arsc。

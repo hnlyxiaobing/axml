@@ -165,7 +165,7 @@ fn zip_min_extract(data : Bytes, e : ZEntry) -> Bytes raise {
     // 解压上限取中央目录 usize（防御 zip 炸弹；usize 未知时退化为 1GiB）
     @flate.inflate_exact(
       z_slice(data, start, e.csize).clamped_view(),
-      max_output=if e.usize > 0 { e.usize } else { 1073741824 },
+      max_output_bytes=if e.usize > 0 { e.usize } else { 1073741824 },
     )
   } else {
     eprintln("error: zip: 不支持的压缩方法 \{e.comp}：\{e.name}")

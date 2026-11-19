@@ -435,10 +435,12 @@ fn ResTable::format_ref(self : ResTable, id : UInt32) -> String {
 }
 
 ///|
-/// 资源 id → 人类可读值：跟随引用链到最终值（带环检测，深度上限 16）。
+/// 资源 id → 人类可读值：跟随引用链到最终值（**无环检测**，深度上限 16 保护）。
 ///
 /// - 简单值：返回 `format_value` 文本（字符串直接是其值，如 `app_name` → `MyApp`）。
-/// - 引用：递归解析；成环/超深以 `@0x%08x (cycle)` / `@0x%08x (too deep)` 标注。
+/// - 引用：递归解析；超深（> 16）以 `@0x%08x (too deep)` 标注。**无 visited 集环检测**——
+///   引用链环检测仅 bag/attr 链（`flatten_bag` / `eval_theme_attr`）覆盖；单表引用链
+///   若成环则依赖深度上限保护。
 /// - 复杂条目（bag）：渲染为 `@type/name`（bag 无法压平成单一文本，属文档化降级）。
 /// - 未命中：`@0x%08x`。**不抛错**——全部缺口以文本如实标注。
 pub fn ResTable::resolve_id(self : ResTable, id : UInt32) -> String {
