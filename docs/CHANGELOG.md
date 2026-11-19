@@ -94,7 +94,7 @@
 
 ## M4 · 边界裁决（2026-11-19）
 
-- `resources.arsc` 回写：方案 B 通过，立项 W9（值级回编 `encode_arsc`，里程碑 W9-1..W9-4，待启动）；不做资源编译/打包
+- `resources.arsc` 回写：方案 B 通过，立项 W9（值级回编 `encode_arsc`，里程碑 W9-1..W9-4，待启动；已于同日 W9 条目交付）；不做资源编译/打包
 - W7 overlay/idmap：复核维持不立项（idmap 属 AXML/ARSC 之外的第三种二进制格式）
 - XML 文本→AXML 编译：不立项，维持非目标（构建期职责归 aapt2）
 - 落地文档：开发计划 §3/§4/§5/§6/§8/§9、README §1/§6、`docs/API.md` D11–D13

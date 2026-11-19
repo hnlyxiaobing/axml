@@ -72,7 +72,7 @@
 - 证据等级：ARSCLib/androidbinary/adbkit-apkreader/axmldec 能力结论 = [已联网核实 2026-11-16，一手 README]；androguard = [已知常识]+二手用法片段；表中 ◐/— 与各家 star 数、维护状态 = [需联网核实]。
 - **最接近 1–3 名**：① shogo82148/androidbinary（Go，MIT）——同为「解析 only + 配置感知取值 + 高层 label/icon」组合，重叠度最高；② REAndroid/ARSCLib（Java）——读侧超集且含写侧（本库非目标）；③ androguard（Python）——AXML+ARSC+语义全栈。
 - **差异化判断**：本库是「已有成熟解析能力的 MoonBit 独立重写 + 组合语义差异化」——严格 fail-closed 结构校验（尾随垃圾拒绝、NUL/UTF 严格）、字节偏移错误模型、纯值零依赖、wasm/native 双目标、AXML×ARSC 单库联合解析。该组合在检索范围内未见同语言同类 [需联网核实：mooncakes 搜索接口 422 不可用，结论限定为已发布包+可用索引、调研时点 2026-11-16]。
-- **缺失能力清单**：已声明非目标=回编/资源编译、框架资源（无表时）、overlay/idmap（申报书「后续」）；**真缺口**=CLI 设备配置接入（B14）、主题感知联合解析（B9）、`vNN` 等 qualifier 子集（B10）、动态引用改写视图（B5/B9）、多表联合解析、`BagMissingParent` 测试（B11）、CLI E2E 与双目标等价自动化（B22）。
+- **缺失能力清单**：已声明非目标=资源编译/打包、框架资源（无表时）、overlay/idmap（申报书「后续」；W8 回编、W9 arsc 回写已交付，不再属缺口）；**真缺口**（M0–M4 交付后剩余）=CLI E2E 自动化（B22，`cmd/main` 无自动化测试）、`vNN` 等 qualifier 子集（B10）、L4/L5 自动化缺口。
 
 ## 3. 边界裁决（P3 结论）
 
@@ -90,7 +90,7 @@
 | `resolve_id` 环检测文档漂移（B8） | **只修文档**使口径与代码一致；不改既有输出文本（`(too deep)` 语义冻结）。如需真环检测另立新函数（本轮不做，登记为可选） |
 | `from_qualifiers` 扩展 `vNN` 等 token | 接受原被拒输入属行为变更 → 走**新函数** `from_qualifiers_ext` 防火墙，旧函数语义永不改变（W3） |
 | 动态引用改写 | 属本库求值职责（真缺口）；新函数新类型，旧 API 的 `Unresolved` 标注语义不变（W5） |
-| `resources.arsc` 回写（`ResTable → Bytes`） | **裁决通过（M4）**：属「已解码值模型回编」，与 W8 同类；新函数 `encode_arsc`，往返律 `parse_arsc(encode_arsc(t)) ≡ normalize(t)`，不保证与 aapt2 字节一致；不可逆形态（sparse/offset16/compact/样式块）显式拒绝或规范化到 dense 布局并登记 |
+| `resources.arsc` 回写（`ResTable → Bytes`） | **裁决通过（M4），已交付**：属「已解码值模型回编」，与 W8 同类；新函数 `encode_arsc`，往返律 `parse_arsc(encode_arsc(t)) ≡ normalize(t)`，不保证与 aapt2 字节一致；不可逆形态（sparse/offset16/compact/样式块）显式拒绝或规范化到 dense 布局并登记 |
 | XML 文本→AXML 编译 | **裁决不通过（M4）**：构建期资源编译（符号分配、资源 id、qualifier 求值）属 aapt2 职责，越出「字节→值」边界；维持非目标 |
 | overlay/idmap 求值 | **复核维持不立项（M4）**：idmap 是 AXML/ARSC 之外的第三种二进制格式；overlayable 由上层用现有 AXML+sem 组合，不进库 |
 
@@ -150,7 +150,7 @@ pub fn ResConfig::from_qualifiers_ext(String) -> Self raise ArscError
 - CLI 新选项 `--config <qualifiers>`：仅与 `--resolve` 同用（否则退出码 2，与 `--arsc` 约束同构）；解析用 `from_qualifiers_ext`；`--resolve` 取值路径在有 `--config` 时改走 `lookup_with(id, device)`，未命中回退 `lookup`（默认配置优先），再退 `@0x%08x`。
 - `util.mbt` 新增内部渲染分支，不动既有 `attr_value` 无 resolve 路径；帮助文本追加选项说明（加法）。
 - 落点：`arsc_match.mbt`（新函数）、`cmd/main/main.mbt`（选项）、`cmd/main/util.mbt`（分支）。
-**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2）；T-W3-6（快照 diff 纯加法 + 五门禁）。
+**验收**：T-W3-1（ext 对旧子集全部 token 与旧函数结果逐字段一致）；T-W3-2（`v21`/`b+en+US` 等新 token 正确、旧函数对 `v21` 仍报 BadQualifier）；T-W3-3（`--config zh` 命中 zh 配置值、无匹配回退默认）；T-W3-4（无 `--config` 时全部既有 CLI 输出逐字节不变）；T-W3-5（`--config` 缺 `--resolve` → 退出码 2）；T-W3-6（快照 diff 纯加法 + 五门禁）。T-W3-1/2/6 已自动化且绿；T-W3-3/4/5 为 CLI 场景 E2E，`cmd/main` 目前无自动化测试，**未落地，归入测试系统设计 L4 待建缺口**（B22）。
 
 ### W4 主题感知属性解析新函数（P1/M）
 
@@ -202,7 +202,7 @@ pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedA
 **实现要点**：按 id 包字节选表（`package_by_id` 命中者优先），名字级解析按 tables 顺序首个命中；全部未命中 → `Unresolved`，不抛错。framework-res 的 arsc 已可被 `parse_arsc` 解析（现有 fixture 用例证实），本包只做组合。落点 `arsc.mbt`。
 **验收**：T-W6-1（应用表+框架表联合，`0x01…` 属性解析为框架值）；T-W6-2（空表集/未命中降级 Unresolved）；T-W6-3（单表结果与旧函数一致）；T-W6-4（快照 diff 纯加法 + 五门禁）。
 
-### W7 overlay/idmap 支持（P3/L，**裁决不通过，维持降级**）
+### W7 overlay/idmap 支持（P3/L，**裁决不通过，已关闭（M3 不立项；M4 复核维持不立项）**）
 
 **目标**：解析 overlayable(0x0204)/policy(0x0205)/staged alias(0x0206) chunk 与 idmap 文件，支撑 RRO 资源覆盖分析。
 **非目标**：不做运行时 overlay 合成语义；不改既有跳过行为对应的旧 API 输出。
@@ -217,8 +217,8 @@ pub fn ResPackage::overlayables(Self) -> Array[ResOverlayable]  // 新类型防�
 ```
 
 **实现要点**：既有 `ResPackage` 不可加字段 → overlayable 数据须挂新类型（如 `parse_arsc_ext(Bytes) -> ResTableExt`，`ResTableExt { table : ResTable, overlayables : Array[...] }`），mbti 草案以新类型为准，上述 `ResPackage::overlayables` 不落地。idmap 为独立文件格式（魔数 0x504D4449），按 AOSP `Idmap.cpp` 校验。
-**降级方案（裁决不通过时）**：维持跳过 + docs/API.md 登记，本包关闭。
-**裁决结论（2026-11-19）**：不立项。维持既有跳过行为与降级登记，本包关闭，不新增 overlayable/idmap API。
+**降级方案（裁决不通过）**：维持跳过 + docs/API.md 登记，本包关闭。
+**裁决结论（2026-11-19）**：M3 裁决不立项，M4 复核维持不立项。维持既有跳过行为与降级登记，本包关闭，不新增 overlayable/idmap API。M4 理由：idmap 是 AXML/ARSC 之外的第三种二进制格式；overlayable 分析由上层用现有 AXML+sem 组合完成，属上游工具职责，不进本库。
 **验收**：T-W7-1（程序化 overlayable/idmap fixture 解析逐字段）；T-W7-2（畸形 idmap 全前缀截断不 panic）；T-W7-3（旧 API 零变化）；T-W7-4（快照纯加法 + 五门禁）。
 
 ### W8 AXML 格式级回编（P3/XL，**裁决通过；M8-1/M8-2/M8-3 已交付**）
@@ -264,11 +264,11 @@ pub fn encode_arsc(ResTable) -> Bytes raise ArscError
 ## 6. 里程碑与合入顺序
 
 ```text
-M0（第1日）  W1 → W2        零风险文档/簿记先行
-M1          W3 → W4        高价值低成本：CLI 配置匹配 + 主题求值
-M2          W5 → W6        解析纵深：动态映射视图 + 多表联合
-M3（裁决后） W7 / W8        大工程：overlay/idmap、回编（各自独立里程碑）
-M4（裁决后） W9             大工程：resources.arsc 回写（独立里程碑）
+M0（第1日）  W1 → W2        零风险文档/簿记先行（已交付）
+M1          W3 → W4        高价值低成本：CLI 配置匹配 + 主题求值（已交付）
+M2          W5 → W6        解析纵深：动态映射视图 + 多表联合（已交付）
+M3（裁决后） W7 / W8        大工程：W7 overlay/idmap 裁决不立项（关闭）；W8 回编 M8-1/M8-2/M8-3 已交付
+M4（裁决后） W9             resources.arsc 回写：M4 立项并已交付
 ```
 
 排序判据：先零风险文档、再安全/正确性缺口（错误簿记）、再高价值低成本、最后大工程；每包独立提交、独立过五门禁。
@@ -277,7 +277,7 @@ M4（裁决后） W9             大工程：resources.arsc 回写（独立里�
 ① W7 overlay/idmap：不立项（M3），M4 复核维持（idmap 属第三种二进制格式）。
 ② W8 AXML 回编：立项并交付 M8-1/M8-2/M8-3（M3）。
 ③ sem label：不改，按 B15 文档化限制（M3）。
-④ resources.arsc 回写：方案 B 通过，立项 W9、待启动（M4）。
+④ resources.arsc 回写：方案 B 通过，M4 立项 W9 并已交付。
 ⑤ XML 文本→AXML 编译：不立项，维持非目标（M4）。
 
 ## 7. 簿记与变更管理
