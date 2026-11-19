@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐）；M3 裁决：W8 立项（M8-1/M8-2 已交付，124/124）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制） ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐）；M3 裁决：W8 立项并交付（M8-1/M8-2/M8-3，129/129）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制） ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -101,8 +101,8 @@
 | W4 | 主题感知属性解析新函数 | P1 | M | 加法：1 新 pub fn | B9 |
 | W5 | 动态引用映射视图新函数 | P2 | M | 加法：2 新 pub fn + 1 新 struct | B5/B9 |
 | W6 | 多表联合解析新类型 | P2 | M | 加法：1 新 struct + 1 新 pub fn | B9/非目标边界 |
-| W7 | overlay/idmap 支持（**须裁决**） | P3 | L | 加法：新类型+新函数 | B5 |
-| W8 | AXML 格式级回编（**须裁决**） | P3 | XL | 加法：1 新 pub fn | 申报书「后续」 |
+| W7 | overlay/idmap 支持（**裁决不通过，维持降级**） | P3 | L | 加法：新类型+新函数 | B5 |
+| W8 | AXML 格式级回编（**已交付 M8-1/M8-2/M8-3**） | P3 | XL | 加法：1 新 pub fn | 申报书「后续」 |
 
 ## 5. 工作包详细设计
 
@@ -217,7 +217,7 @@ pub fn ResPackage::overlayables(Self) -> Array[ResOverlayable]  // 新类型防�
 **裁决结论（2026-11-19）**：不立项。维持既有跳过行为与降级登记，本包关闭，不新增 overlayable/idmap API。
 **验收**：T-W7-1（程序化 overlayable/idmap fixture 解析逐字段）；T-W7-2（畸形 idmap 全前缀截断不 panic）；T-W7-3（旧 API 零变化）；T-W7-4（快照纯加法 + 五门禁）。
 
-### W8 AXML 格式级回编（P3/XL，**裁决通过；M8-1/M8-2 已交付**）
+### W8 AXML 格式级回编（P3/XL，**裁决通过；M8-1/M8-2/M8-3 已交付**）
 
 **目标**：`AxmlDoc → Bytes` 格式级 encode，满足「解析→修改→回编」逆向工作流；不做资源编译/打包（非目标不变）。
 **非目标**：不做 arsc 写入；不做 XML 文本→AXML 编译；不保证与 aapt2 产物字节级一致（只保证语义往返）。
@@ -231,6 +231,7 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 **裁决结论（2026-11-19）**：方案 B 通过，W8 立项。
 **M8-1 交付（2026-11-19）**：`encode` 落地，范围=字符串池（保留 UTF-8/UTF-16 编码与顺序）+ resource map + 空文档；`parse(encode(doc))` 在 UTF-8/UTF-16（含代理对）与 resource map 受控样本上往返成立，编码产物二次往返逐字节稳定。节点表非空与样式块非空以 `VendorVariant` 显式拒绝（不静默丢信息），留待 M8-2。
 **M8-2 交付（2026-11-19）**：元素/属性/CDATA 回编落地；START_ELEMENT 固定 attributeStart/attributeSize=20，END_ELEMENT 与 CDATA 按解析侧布局重建；`ValueType`（含 `Unknown`）、`res0`、`raw_data`、`line`、ns/rawValue 可选索引全部保真。往返律在 UTF-8/UTF-16 golden、多根 + 顶层 CDATA、未知属性类型等受控样本上闭合；未被根/父引用的节点、重复访问（多父/环）、缺失池字符串均显式报错。命名空间声明 chunk 不重建（`AxmlDoc` 不保留前缀/声明位置，解析侧本就跳过）。样式块仍以 `VendorVariant` 拒绝。
+**M8-3 交付（2026-11-19）**：真实入库 AXML fixture（base / tvshell-debug / fx-multidex / framework-res）全部 `parse(encode(doc))` 逐字段等价，CLI 规范化 tree/pool 逐行一致；encode 产物二次往返逐字节稳定、再 parse 不 panic。W8 至此全部交付，往返律在程序化与真实样本上均闭合。
 **降级方案**：维持解析 only 定位，申报书「后续」项如实保留。
 **验收**：T-W8-1（空文档/单元素往返）；T-W8-2（全部入库 AXML fixture 语义往返律）；T-W8-3（encode 产物再 parse 不 panic）；T-W8-4（快照纯加法 + 五门禁）。
 

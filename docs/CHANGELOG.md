@@ -82,3 +82,12 @@
 - 显式拒绝（不静默丢信息）：样式块 → `VendorVariant`；节点引用字符串不在池中 → `BadStringPool`；越界/重复访问/未被引用的节点 → `InvalidNodeIndex`
 - 快照 diff：零变更（签名未变）
 - 测试增量：净 +5 执行用例（新增 6：UTF-8 golden 往返 / UTF-16 golden 往返 / 多根 + 顶层 CDATA / 属性元数据含 `Unknown` 类型 / 元素文档二次编码稳定 / 缺失池字符串拒绝；移除 M8-1 的「节点显式拒绝」1 项）
+
+## W8 · AXML 格式级回编 M8-3（2026-11-19）
+
+- 新增 pub 声明：无（仅新增验收测试与文档）
+- 真实样本：base / tvshell-debug / fx-multidex / framework-res 四个入库 AndroidManifest AXML
+- 往返律：`parse(encode(doc))` 与 `doc` 逐字段等价（字符串池、resource map、根顺序、节点/属性全字段），且 CLI 规范化 tree/pool 逐行一致
+- 产物稳定性：encode 结果再次 parse 成功、二次 encode 逐字节相同（不 panic）
+- 快照 diff：零变更
+- 测试增量：+5 执行用例（T-W8-2 ×4 真实样本；T-W8-3 ×1 产物再 parse 与稳定），总 129/129

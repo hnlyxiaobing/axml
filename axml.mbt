@@ -124,7 +124,8 @@ pub type NodeIndex = Int32
 /// - 降级策略（见 docs/API.md §1）：未知 chunk 类型按 headerSize/size 跳过；
 ///   厂商变体布局（attributeStart/attributeSize < 20）以 `VendorVariant` 报告；
 ///   未知字符串池标志位以 `UnsupportedEncoding` 报告。
-/// - 非目标：不解析资源引用、不提供 manifest 语义、不回编、不处理 resources.arsc。
+/// - 非目标：不解析资源引用、不提供 manifest 语义、不处理 resources.arsc
+///   （格式级回编见 `encode`，不做 XML 文本编译与打包）。
 /// - TODO：`res0`/`data` 的语义解释（当前按 docs/API.md 保留原值，语义确定后再实现）。
 pub fn parse(data : Bytes) -> AxmlDoc raise AxmlError {
   let limit = data.length()
