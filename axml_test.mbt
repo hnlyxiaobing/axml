@@ -709,3 +709,93 @@ test "a second string pool raises BadChunkType" {
     fail("expected BadChunkType for a duplicate string pool")
   }
 }
+
+///|
+fn encode_err(doc : @axml.AxmlDoc) -> @axml.AxmlError raise {
+  let result = Ok(@axml.encode(doc)) catch { err => Err(err) }
+  match result {
+    Ok(_) => fail("expected encode to raise AxmlError")
+    Err(e) => e
+  }
+}
+
+///|
+test "T-W8-1 empty UTF-8 document round-trips through encode" {
+  let src = xml_doc([
+    pool(
+      [
+        utf8_entry(8, b"manifest"),
+        utf8_entry(7, b"package"),
+        utf8_entry(15, b"com.example.app"),
+      ],
+      0x100,
+    ),
+  ])
+  let doc = @axml.parse(src)
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(back.pool.encoding is Utf8, msg="encoding preserved")
+  assert_true(back.pool.strings.length() == 3, msg="pool size preserved")
+  assert_true(back.string_at(0) == "manifest", msg="string 0")
+  assert_true(back.string_at(1) == "package", msg="string 1")
+  assert_true(back.string_at(2) == "com.example.app", msg="string 2")
+  assert_true(back.pool.styles.length() == 0, msg="no styles")
+  assert_true(back.nodes.length() == 0, msg="no nodes")
+  assert_true(back.roots.length() == 0, msg="no roots")
+  assert_true(back.resource_map.length() == 0, msg="no resource map")
+}
+
+///|
+test "T-W8-1 empty UTF-16 document round-trips through encode" {
+  let src = xml_doc([
+    pool(
+      [
+        utf16_entry(5, utf16_str([0x68, 0xE9, 0x6C, 0x6C, 0x6F])),
+        utf16_entry(2, utf16_str([0xD83D, 0xDE00])),
+        utf16_entry(0, b""),
+      ],
+      0,
+    ),
+  ])
+  let doc = @axml.parse(src)
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(back.pool.encoding is Utf16, msg="encoding preserved")
+  assert_true(back.pool.strings.length() == 3, msg="pool size preserved")
+  assert_true(back.string_at(0) == "héllo", msg="BMP string")
+  assert_true(back.string_at(1) == "😀", msg="surrogate pair string")
+  assert_true(back.string_at(2) == "", msg="empty string")
+}
+
+///|
+test "T-W8-1 resource map round-trips without elements" {
+  let src = xml_doc([
+    pool([utf8_entry(4, b"name")], 0x100),
+    res_map([0x01010003, 0x0101000F]),
+  ])
+  let doc = @axml.parse(src)
+  let back = @axml.parse(@axml.encode(doc))
+  assert_true(back.resource_map.length() == 2, msg="resource map size")
+  assert_true(back.resource_map.at(0) == 0x01010003U, msg="resource id 0")
+  assert_true(back.resource_map.at(1) == 0x0101000FU, msg="resource id 1")
+}
+
+///|
+test "T-W8-1 encode output is stable under a second round-trip" {
+  let src = xml_doc([
+    pool([utf8_entry(5, b"alpha"), utf8_entry(4, b"beta")], 0x100),
+    res_map([0x7F010001]),
+  ])
+  let once = @axml.encode(@axml.parse(src))
+  let twice = @axml.encode(@axml.parse(once))
+  assert_true(
+    once == twice,
+    msg="encode is idempotent on a normalized document",
+  )
+}
+
+///|
+test "T-W8-1 encode rejects element nodes before M8-2" {
+  let e = encode_err(@axml.parse(golden_utf8()))
+  guard e is VendorVariant(_) else {
+    fail("expected VendorVariant for element nodes")
+  }
+}

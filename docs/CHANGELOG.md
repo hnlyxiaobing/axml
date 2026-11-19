@@ -56,3 +56,19 @@
 - 单表 API 语义不变；不自动加载/内置任何框架资源
 - 快照 diff：纯加法（+1 struct、+1 pub fn）
 - 测试增量：+3 执行用例（T-W6-1 框架表 0x01… 解析 / T-W6-2 空表集与未命中降级 / T-W6-3 单表与旧函数逐字段一致）
+
+## M3 裁决（2026-11-19）
+
+- W8 AXML 格式级回编：方案 B 通过，立项；先以 M8-1 验证往返律。
+- W7 overlay/idmap：不立项，维持既有跳过行为与降级登记，本包关闭。
+- `sem --resolve-label`：不新增选项，按既有输出保持并文档化限制。
+
+## W8 · AXML 格式级回编 M8-1（2026-11-19）
+
+- 新增 pub 声明：`encode(AxmlDoc) -> Bytes raise AxmlError`（`encode.mbt`）
+- 范围（M8-1）：重建 RES_XML_TYPE 文件头 + UTF-8/UTF-16 字符串池（保留原编码与字符串顺序，不设 SORTED）+ RES_XML_RESOURCE_MAP；空文档（无元素/无根）往返成立
+- 往返律：`parse(encode(doc))` 在 UTF-8、UTF-16（含 BMP 外代理对、空串）与 resource map 受控样本上语义等价；`encode(parse(encode(parse(src))))` 与首次产物逐字节一致
+- 限制（显式拒绝，不静默丢信息）：节点表/根索引非空或样式块非空 → `VendorVariant`，留待 M8-2；字符串超过 UTF-8 池前缀上限 → `BadStringPool`
+- 不做 arsc 写入、不做 XML 文本→AXML 编译；不保证与 aapt2 字节级一致
+- 快照 diff：纯加法（+1 pub fn）
+- 测试增量：+5 执行用例（T-W8-1：UTF-8 空文档往返 / UTF-16 空文档往返 / resource map 往返 / 二次往返幂等 / 节点显式拒绝）

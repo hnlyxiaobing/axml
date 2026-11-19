@@ -32,6 +32,7 @@
 ## 3. 公开 API 索引（自动抽取 `pkg.generated.mbti` 的 `pub` 声明行；完整字段见快照）
 
 ```text
+pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr

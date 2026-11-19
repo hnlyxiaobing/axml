@@ -1,6 +1,6 @@
 # axml 资源层解析忠实性与解析纵深开发文档
 
-> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐，114/114）；M3（W7/W8）待裁决 ｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：M0–M2 已交付（W1–W6，2026-11-19；W3–W5 验收测试已补齐，114/114）；M3 裁决：W8 立项（M8-1 已交付，119/119）、W7 不立项（维持降级）、`sem --resolve-label` 不改（文档化限制） ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-test-system-design.md](2026-11-16-test-system-design.md)（验收测试 ID `T-W*-*` 出自该文档）
 > 本文所有「现状」结论均为 2026-11-16 对本仓库源码的实测核对（五门禁本机实跑全绿），非转述历史文档。
 
@@ -198,7 +198,7 @@ pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedA
 **实现要点**：按 id 包字节选表（`package_by_id` 命中者优先），名字级解析按 tables 顺序首个命中；全部未命中 → `Unresolved`，不抛错。framework-res 的 arsc 已可被 `parse_arsc` 解析（现有 fixture 用例证实），本包只做组合。落点 `arsc.mbt`。
 **验收**：T-W6-1（应用表+框架表联合，`0x01…` 属性解析为框架值）；T-W6-2（空表集/未命中降级 Unresolved）；T-W6-3（单表结果与旧函数一致）；T-W6-4（快照 diff 纯加法 + 五门禁）。
 
-### W7 overlay/idmap 支持（P3/L，**须裁决**）
+### W7 overlay/idmap 支持（P3/L，**裁决不通过，维持降级**）
 
 **目标**：解析 overlayable(0x0204)/policy(0x0205)/staged alias(0x0206) chunk 与 idmap 文件，支撑 RRO 资源覆盖分析。
 **非目标**：不做运行时 overlay 合成语义；不改既有跳过行为对应的旧 API 输出。
@@ -214,9 +214,10 @@ pub fn ResPackage::overlayables(Self) -> Array[ResOverlayable]  // 新类型防�
 
 **实现要点**：既有 `ResPackage` 不可加字段 → overlayable 数据须挂新类型（如 `parse_arsc_ext(Bytes) -> ResTableExt`，`ResTableExt { table : ResTable, overlayables : Array[...] }`），mbti 草案以新类型为准，上述 `ResPackage::overlayables` 不落地。idmap 为独立文件格式（魔数 0x504D4449），按 AOSP `Idmap.cpp` 校验。
 **降级方案（裁决不通过时）**：维持跳过 + docs/API.md 登记，本包关闭。
+**裁决结论（2026-11-19）**：不立项。维持既有跳过行为与降级登记，本包关闭，不新增 overlayable/idmap API。
 **验收**：T-W7-1（程序化 overlayable/idmap fixture 解析逐字段）；T-W7-2（畸形 idmap 全前缀截断不 panic）；T-W7-3（旧 API 零变化）；T-W7-4（快照纯加法 + 五门禁）。
 
-### W8 AXML 格式级回编（P3/XL，**须裁决**）
+### W8 AXML 格式级回编（P3/XL，**裁决通过；M8-1 已交付**）
 
 **目标**：`AxmlDoc → Bytes` 格式级 encode，满足「解析→修改→回编」逆向工作流；不做资源编译/打包（非目标不变）。
 **非目标**：不做 arsc 写入；不做 XML 文本→AXML 编译；不保证与 aapt2 产物字节级一致（只保证语义往返）。
@@ -227,6 +228,8 @@ pub fn encode(AxmlDoc) -> Bytes raise AxmlError
 ```
 
 **实现要点**：重建字符串池（UTF-16 优先， SORTED 可选）、resource map、namespace/element/cdata chunk；索引越界复用 `InvalidStringIndex`/`InvalidNodeIndex`。里程碑拆分：M8-1 字符串池+空文档往返；M8-2 元素/属性往返；M8-3 真实 fixture 语义往返（`parse(encode(doc))` 与 `doc` 规范化等价）；每里程碑独立五门禁，止损条件=往返律在受控 fixture 上无法闭合即停。
+**裁决结论（2026-11-19）**：方案 B 通过，W8 立项。
+**M8-1 交付（2026-11-19）**：`encode` 落地，范围=字符串池（保留 UTF-8/UTF-16 编码与顺序）+ resource map + 空文档；`parse(encode(doc))` 在 UTF-8/UTF-16（含代理对）与 resource map 受控样本上往返成立，编码产物二次往返逐字节稳定。节点表非空与样式块非空以 `VendorVariant` 显式拒绝（不静默丢信息），留待 M8-2。
 **降级方案**：维持解析 only 定位，申报书「后续」项如实保留。
 **验收**：T-W8-1（空文档/单元素往返）；T-W8-2（全部入库 AXML fixture 语义往返律）；T-W8-3（encode 产物再 parse 不 panic）；T-W8-4（快照纯加法 + 五门禁）。
 
