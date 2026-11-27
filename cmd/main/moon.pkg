@@ -1,6 +1,5 @@
 import {
   "hnlyxiaobing/axml/cmd/cli",
-  "moonbitlang/core/async",
   "moonbitlang/core/env",
 }
 

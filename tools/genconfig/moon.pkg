@@ -1,6 +1,5 @@
 import {
   "hnlyxiaobing/axml",
-  "moonbitlang/core/async",
   "moonbitlang/core/async/fs",
 }
 
