@@ -4,14 +4,14 @@
 
 ## 1. 入库 fixture（12 个文件，路径 `tests/fixtures/`）
 
-### base / tvshell-debug（受控自建）
+### base（受控自建）/ tvshell-debug（来源待核）
 
 | 文件 | SHA-256 | 来源 | 许可 |
 |---|---|---|---|
 | base.AndroidManifest.xml | `c7a39304785e6eeb0cb9efc799613f10c21c22ee1c2b729f010015431b501091` | 受控自建：aapt2 编译极简 AndroidManifest（package=`com.example`, 单 activity），产出 APK 后 dump 抽取 AXML | 随仓库 Apache-2.0 |
 | base.resources.arsc | `1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8` | 受控自建：同 base manifest 编译的资源表 | 随仓库 Apache-2.0 |
-| tvshell-debug.AndroidManifest.xml | `23064a1732eee67d9be1d155a9eb08c8b0269590b3c4c6ed3c6fcd444e5c62fd` | 受控自建：aapt2 编译含 application / debug 标志 / 多 activity 的 manifest | 随仓库 Apache-2.0 |
-| tvshell-debug.resources.arsc | `1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8` | 受控自建：同 tvshell-debug manifest 编译的资源表 | 随仓库 Apache-2.0 |
+| tvshell-debug.AndroidManifest.xml | `23064a1732eee67d9be1d155a9eb08c8b0269590b3c4c6ed3c6fcd444e5c62fd` | **来源待核**：由既有 APK 提取，不追认自产 | **待核**；未清权前不得随分发 |
+| tvshell-debug.resources.arsc | `1fa3cb291285348ec1b33c85e7317d989467707f4791c4e5302f2d312d1e18c8` | **来源待核**：与既有 APK 登记口径一致 | **待核**；未清权前不得随分发 |
 
 ### fx-multidex（官方工具链自产）
 

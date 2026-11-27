@@ -1,7 +1,7 @@
 # axml · 二进制 XML 与资源表解析
 
 > 独立发布单元 ｜ L1 逆向输入 ｜ `preferred_target = wasm` ｜ Apache-2.0
-> 状态：`moon test` **170/170** 通过（2026-11-19 本机实测，另有 3 个 `#skip` 用例不计入，共 173 声明；含 L4 CLI 场景 E2E 18 例 + 字节冻结基线 22 场景，`cmd/cli` 原生承载（`cmd/main` 仅进程入口）；wasm/native 双目标各 170/170）；本文件是本仓库**唯一**说明文档。
+> 状态：`moon test` **170/171**（2026-11-27 当前实测：170 通过、1 失败，另有 3 个 `#skip` 用例不计入；**当前未全绿，失败项仍需代码处理**）；含 L4 CLI 场景 E2E 18 例 + 字节冻结基线 22 场景，`cmd/cli` 原生承载（`cmd/main` 仅进程入口）；本文件是本仓库**入口**说明文档，API 降级语义与错误模型见 [`docs/API.md`](docs/API.md)，其余文档见各模块内文档索引。
 > 公开 API 以 `pkg.generated.mbti` 为准（由 `moon info` 生成，禁手工编辑）；加法性变更须登记簿记 + 快照审阅 + 快照门禁。
 
 ## 1. 定位与边界
@@ -45,6 +45,7 @@ pub fn parse(Bytes) -> AxmlDoc raise AxmlError
 pub fn parse_arsc(Bytes) -> ResTable raise ArscError
 pub fn resolve_attr_value(AxmlDoc, ResTable, XmlAttribute) -> ResolvedAttr
 pub fn resolve_attr_value_multi(AxmlDoc, ResTableSet, XmlAttribute) -> ResolvedAttr
+pub fn resolve_attr_value_with_config(AxmlDoc, ResTable, XmlAttribute, ResConfig) -> ResolvedAttr
 pub fn resolve_attr_value_with_theme(AxmlDoc, ResTable, XmlAttribute, UInt32, ResConfig) -> ResolvedAttr
 pub(all) struct AxmlDoc {
 pub fn AxmlDoc::elements(Self) -> Array[XmlNode] raise AxmlError
@@ -116,6 +117,6 @@ pub fn AxmlError::to_repr(Self) -> @debug.Repr
 - 与 `apk` 侧 `resources.arsc` 实现并存，未去重。
 - 框架资源引用在无 framework-res 资源表时只能保持原始值；`DocumentView` 已从公开面删除。
 - 写侧闭环已覆盖 AXML（`encode`）与 ARSC（`encode_arsc`）；XML 文本→AXML 编译为明确非目标。
-- 未自动化项：L3 aapt2 差分与真机 R runner（外部 oracle 依赖，未立项）。已于 2026-11-19 落地：wasm/native 双目标门禁（CI `l5-native` job，本地 wasm/native 各 170/170）、L1 截断/位翻转/变异（`fuzz_test.mbt`）、fixture 文件↔内嵌常量一致性门禁（T-W2-3，`tools/check_fixtures`）、CLI 字节冻结基线（T-W3-4，`tests/cli-golden/`）。
+- 未自动化项：L3 aapt2 差分与真机 R runner（外部 oracle 依赖，未立项）。wasm/native 双目标门禁已配置（CI `l5-native` job）；2026-11-19 历史实测为 wasm/native 各 170/170，但当前基线已有 1 个失败（170/171），不得据此称当前双目标全绿。L1 截断/位翻转/变异（`fuzz_test.mbt`）、fixture 文件↔内嵌常量一致性门禁（T-W2-3，`tools/check_fixtures`）、CLI 字节冻结基线（T-W3-4，`tests/cli-golden/`）已落地。
 - 残留未验证：`enc_pack_locale` 的 3 位 locale 压缩编码未与 aapt2 真实产物差分（现有真实 fixture 均为 2 位 ASCII locale）；CI 云上首跑（Gate 3b、`l5-native`）待 push 后确认。完整风险登记见开发计划 §9。
 

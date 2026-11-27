@@ -6,7 +6,7 @@
 - 资源表：`resources.arsc` 的 package / typeSpec / type entry / 字符串池，bag 压平，`?attr` 主题求值
 - 解析辅助：qualifier 最优匹配、`ResTableSet` 多表联合解析、`--config` 设备限定符取值
 - 回编：`encode` 生成 AXML、`encode_arsc` 生成 `resources.arsc`（值级语义往返）
-- 零第三方依赖；`preferred_target = wasm`，wasm/native 双目标通过同一套测试
+- 零第三方依赖；`preferred_target = wasm`，wasm/native 双目标运行同一套测试
 
 ## 安装
 

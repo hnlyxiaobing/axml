@@ -29,10 +29,10 @@
 ## W3 · CLI 设备配置匹配 + qualifier 扩展（2026-11-19）
 
 - 新增 pub 声明：`ResConfig::from_qualifiers_ext(String) -> Self raise ArscError`（旧 `from_qualifiers` 语义冻结）
-- CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；**实际实现仅把 `dev_config` 用于名字级回退 `resolve_res_ref`（`lookup_with`），`--resolve` 取值主路径仍走 `lookup`（默认配置优先）**，未按设备配置选值（2026-11-19 对抗性复核订正；见 `docs/API.md` D15）
+- CLI 新增 `--config <qualifiers>` 选项（仅与 `--resolve` 同用，缺 `--resolve` 时退出码 2）；**早期实现仅把 `dev_config` 用于名字级回退 `resolve_res_ref`（`lookup_with`），`--resolve` 取值主路径仍走 `lookup`（默认配置优先）**，未按设备配置选值。该早期未实现状态已由下方「P0-1 W3」交付的 `resolve_attr_value_with_config` 与 CLI 接线取代（见 `docs/API.md` D15）。
 - 快照 diff：纯加法
 - 测试增量：+2 执行用例（T-W3-1 ext 对旧子集 29 组 token 与旧函数逐字段一致；T-W3-2 新 token 解析 + 旧函数拒绝 5 组扩展 token）
-- CLI 实测：T-W3-5（缺 `--resolve` → stderr 报错、退出码 2）已测；**T-W3-3 未达标**（L4 用例仅断言退出码 0 与 label 出现，夹具单配置，未验证 zh 配置值）；**T-W3-4 未自动化**（仅覆盖未知选项 → 退出码 2，无逐字节基线比对）
+- CLI 实测：T-W3-5（缺 `--resolve` → stderr 报错、退出码 2）已测；**当时 T-W3-3 未达标**（L4 用例仅断言退出码 0 与 label 出现，夹具单配置，未验证 zh 配置值）；**当时 T-W3-4 未自动化**（仅覆盖未知选项 → 退出码 2，无逐字节基线比对）。两项均已由下方「P0-1 W3」「P0-4 T-W3-4」后续交付取代，不再代表当前状态。
 
 ## W4 · 主题感知属性解析（2026-11-19）
 
@@ -124,11 +124,11 @@
   - 私有类型 `DumpOpts` / `Sink` 以 opaque `type` 形式出现在 `.mbti`（与既有 `RefCtx`/`SemInfo`/`ZEntry` 同形，非新增可见 API 面）
 - 子命令分派在 `cli_run` 中与真实入口 `run` 逐项一致（缺子命令/`--help`/未知子命令/`dump`），保证退出码矩阵端到端可断言
 - 快照 diff：纯加法（+1 pub fn、+1 pub(all) struct、+2 opaque type）
-- 测试增量：+17 执行用例（`cmd/main/cli_e2e_test.mbt`；夹具全程序化构造，无外部依赖）：
+- 测试增量：当时 +17 执行用例（`cmd/cli/cli_e2e_test.mbt`；夹具全程序化构造，无外部依赖）；当前 L4 为 18 例，后续 W3 配置选值用例见「P0-1 W3」：
   - 退出码 0：tree / pool / sem 记录行逐字节冻结、`--json` 单行输出
   - 退出码 1：AXML 解析失败、APK 条目缺失、截断 ZIP、非法 `--config` 限定符
   - 退出码 2：用法错误矩阵 9 例（缺/未知子命令、未知选项、缺输入、非法 view、`--arsc`/`--config` 缺 `--resolve`、`--entry` 对非 ZIP、`--resolve` 无表）+ 无输入字节时 2 例；`dump --help` / 顶层 `--help` -> 退出码 0（1 例，契约冻结）
-  - 场景：APK 直读（手工构造 Store 型 ZIP）与裸 AXML dump 输出一致、`--entry` 指定条目、`--resolve --arsc` 引用解析为 `MyApp`、`--config` 选项/限定符解析/名字级回退接线（**未验证按配置选值**）、未知选项冻结
+  - 场景：APK 直读（手工构造 Store 型 ZIP）与裸 AXML dump 输出一致、`--entry` 指定条目、`--resolve --arsc` 引用解析为 `MyApp`、`--config` 选项/限定符解析/名字级回退接线（**当时未验证按配置选值，已由「P0-1 W3」补证**）、未知选项冻结
 - 复验：`moon test` 152/152 执行通过 + 3 `#skip`（2026-11-19）；真实 CLI 回归（base/fx-multidex 的 tree/sem/json、`--resolve` 解析 `Fx Multidex`、用法错 2 / IO 错 1）逐项一致
 
 ## P0 · 文档一致性同步（2026-11-19）
@@ -143,7 +143,7 @@
 
 本次核对以源码/测试实跑为证据，订正了以下夸大或过时表述（不改变任何代码逻辑）：
 
-- W3：`--config` 未接入 `--resolve` 取值主路径，仅名字级回退用 `lookup_with`；T-W3-3 未达标、T-W3-4 未自动化（上文 W3/L4 条目与 `docs/API.md` D15）
+- W3：早期 `--config` 未接入 `--resolve` 取值主路径，仅名字级回退用 `lookup_with`；当时 T-W3-3 未达标、T-W3-4 未自动化。**该状态已由下方 P0-1/P0-4 后续交付取代**（当前 API/CLI 语义见 `docs/API.md` D15）
 - W2：T-W2-3 双通道一致性脚本未落地（仓库无脚本，`tests/ASSETS.md` §2 已改）
 - W6：多表解析实际按 `tables` 顺序首个命中，未使用 `package_by_id`（上文 W6 条目）
 - W9：`ResConfig.raw` 空/短零填充表述不实，实际 `size > raw.length()` 报 `BadTable`（`docs/API.md` D14）
@@ -177,7 +177,7 @@
 
 ### P0-4 T-W3-4：CLI 字节冻结基线
 
-- 新增 `tests/cli-golden/` 22 个场景基线文件 + `cmd/main/cli_golden_test.mbt`：views×6 / APK×3 / resolve+config×4 / errors+help×9，逐字节比较（退出码 + stdout/stderr 全部行）；基线缺失时落盘并判失败（已提交基线在 CI 恒存在，恒 fail-closed）
+- 新增 `tests/cli-golden/` 22 个场景基线文件 + `cmd/cli/cli_golden_test.mbt`：views×6 / APK×3 / resolve+config×4 / errors+help×9，逐字节比较（退出码 + stdout/stderr 全部行）；基线缺失时落盘并判失败（已提交基线在 CI 恒存在，恒 fail-closed）
 - 红→绿实证：临时改帮助文本 1 字符 → 2 基线 MISMATCH；还原后 19/19 绿
 
 ### P1-1 L1：截断/位翻转/变异（`fuzz_test.mbt` +4）

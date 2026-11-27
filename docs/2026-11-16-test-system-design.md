@@ -1,6 +1,6 @@
 # axml 测试系统设计（第一性原理）
 
-> 建立：2026-11-16 ｜ 状态：设计生效，随开发文档逐包落地；M0–M4 已交付，覆盖 **170/170** 通过 + 3 `#skip`（共 173 声明；2026-11-19 二次实测；对抗性复核发现的 T-W2-3、T-W3-3/T-W3-4 缺口已于同日修复，见 §6.1/§10）｜ 适用仓库：本仓库（独立自包含）
+> 建立：2026-11-16 ｜ 状态：设计生效，随开发文档逐包落地；M0–M4 已交付；当前实测 **170/171**（170 通过、1 失败，另有 3 个 `#skip`，当前未全绿）。2026-11-19 二次实测曾为 170/170 + 3 `#skip`，当时为 wasm/native 各 170/170；对抗性复核发现的 T-W2-3、T-W3-3/T-W3-4 缺口已于同日修复，见 §6.1/§10 ｜ 适用仓库：本仓库（独立自包含）
 > 配套文档：[2026-11-16-resource-fidelity-dev-plan.md](2026-11-16-resource-fidelity-dev-plan.md)（`T-W*-*` 验收 ID 一一对应；`B#` 现状证据行均出自该文档 §0 基线表，为 2026-11-16 源码实测核对结论）
 
 ## 1. 第一性原理：本库的正确性是什么
@@ -16,7 +16,7 @@
 | A3 | 边界纯净 | 只输出声明的纯值类型；不产出容器信任结论、不做 manifest 业务风险判断、动态引用不改写（B9）、无框架表时 `0x01…` 保持原样 | 单表 API 擅自改写动态引用；sem 视图输出「exported 危险」类下游结论 |
 | A4 | 输入安全 | 任意畸形输入不 panic/不越界/内存有界（attributeCount 先于读取预检 B1；inflate 上限取中央目录 usize、未知退化为 1GiB B16） | 截断输入 panic；伪造 entryCount 触发无界分配；压缩炸弹解压无上限 |
 | A5 | 契约稳定 | mbti 快照只加法；CLI 记录行 `EL\|AT\|SEM\|POOL\|STR\|` 与退出码 0/1/2 冻结（B13）；旧函数语义永不改变（防火墙） | 给既有 pub(all) struct 加字段；`from_qualifiers` 静默接受原被拒的 `v21`；无新选项时 CLI 输出漂移 |
-| A6 | 平台等价 | wasm 与 native 同输入同输出（值结构与渲染文本逐字节一致） | 整型溢出/字节序处理在两后端分歧（现状无自动化门禁，B22） |
+| A6 | 平台等价 | wasm 与 native 同输入同输出（值结构与渲染文本逐字节一致） | 整型溢出/字节序处理在两后端分歧（B22；门禁已配置，当前测试基线含 1 个失败，不能称全绿） |
 
 设计推论：A1/A2 → 性质测试 + 穷举扫描；A2 语义 → 恒等式断言 + 错误簿记；A4 → 截断扫描 + 变异语料 + 边界值；A5/A6 → 门禁与差分；真实符合性 → 外部 oracle 层（许可约束下本地可选）。
 
@@ -43,7 +43,7 @@ R  真实样本本地 runner（仓库外路径 + SHA-256 门禁 + 显式 SKIPPED
 | A5 契约稳定 | L5（快照 + 簿记） | L4（记录行/退出码冻结）、L0 防火墙律 |
 | A6 平台等价 | L5（双目标差分） | — |
 
-现状测试基线（2026-11-19 二次实测）：**173 个 `test` 声明 = 170 执行通过 + 3 `#skip`**（`moon test` 报告 "Total tests: 170, passed: 170, failed: 0"，3 `#skip` 不计入该总数）。
+现状测试基线（2026-11-19 历史二次实测）：**173 个 `test` 声明 = 170 执行通过 + 3 `#skip`**；该次 wasm/native 均为 170/170。**当前复验为 170/171（1 失败、3 `#skip`），不再全绿**，历史计数仅作演进记录。
 分布：`axml_test.mbt` 36、`axml_wbtest.mbt` 14、`arsc_test.mbt` 23、`arsc_wbtest.mbt` 6、`arsc_match_test.mbt` 18、`arsc_encode_test.mbt` 8、`encode_fixtures_test.mbt` 5、`fixtures_test.mbt` 21（含 2 skip）、`fixtures_malformed_test.mbt` 11（含 1 skip）、`fuzz_test.mbt` 4（L1 截断/位翻转/变异）、`property_test.mbt` 4（P3/P4/P6/P10）、`cmd/cli/cli_e2e_test.mbt` 18、`cmd/cli/cli_golden_test.mbt` 1（T-W3-4 字节冻结）、`tools/check_fixtures/check_fixtures_wbtest.mbt` 4（T-W2-3 门禁单测）。`cmd/cli` 的 L4 E2E 已由 `moon test` 原生承载（B22 已闭合；`cmd/main` 仅保留进程入口）。
 
 **`#skip` 显式清单（永不计入通过）**：
@@ -60,7 +60,7 @@ R  真实样本本地 runner（仓库外路径 + SHA-256 门禁 + 显式 SKIPPED
 |---|---|---|---|---|
 | F-A 程序化构造 | 测试代码字节 builder | 是 | 随仓库 | 已建成：`axml_test.mbt` 36 例、`arsc_test.mbt` 畸形/结构例、`arsc_match_test.mbt` 18 例均程序化构造（B1/B5/B10） |
 | F-B 受控文件 fixture | `tests/fixtures/*.bin` 12 个 | 是 | 哈希登记 | **双通道一致律已自动化（T-W2-3，2026-11-19）**：`tools/check_fixtures` 门禁校验 ASSETS §1 SHA-256 + `fixtures_test.mbt` 内嵌块逐字节一致 + 内嵌块反向登记完备（fail-closed，退出码 0/1），CI Gate 3b 执行；12 文件中 9 个有内嵌块逐字节校验、3 个畸形派生物仅哈希校验 |
-| F-C 生成器资产 | 确定性构建产出 | 是 | 自产/受控自建 | base/tvshell-debug 受控自建、fx-multidex 官方工具链自产、framework-res AOSP Apache-2.0（W1 已在本仓库重建来源与哈希登记，B17 已闭合）；fx-config 对受控自产（`tools/genconfig` 程序化生成，T-W3-3 端到端实跑承载） |
+| F-C 生成器资产 | 确定性构建产出 | 是 | base 受控自建、tvshell-debug 来源待核、fx-multidex 官方工具链自产、framework-res AOSP Apache-2.0（W1 已在本仓库重建来源与哈希登记，B17 已闭合）；fx-config 对受控自产（`tools/genconfig` 程序化生成，T-W3-3 端到端实跑承载） |
 | F-D 真实第三方样本 | 仓库外本地路径 | **否（红线）** | 许可不明 | R runner 承载；真机用例 `#skip` 保留 |
 
 红线：F-D 永不入库；fixture 哈希变更须同步登记 + 黄金记录（防样本漂移假绿）。
@@ -136,7 +136,7 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 | C3 | 容器信任不越界（zipmin 无 CRC 显式声明） | ✘ | — | — | — | ✔ | B16（注释漂移） | 声明已修正（W1）；**L4 已落地**「无容器完整性结论输出」断言（记录行前缀白名单 + APK 输出 == 裸 dump） |
 | C4 | 许可红线（F-D 不入库） | — | — | ✔登记 | — | — | **已落地**（W1 重建 ASSETS.md 哈希登记，T-W1-2） | — |
 | C5 | 契约冻结（快照/记录行/退出码） | ◐ | — | — | — | ✔ | B13/B21/B22 | 快照门禁已有；**T-W3-4 已落地**：`tests/cli-golden/` 22 基线 + `cli_golden_test.mbt` 逐字节比较（含红→绿实证） |
-| C6 | 双目标等价 | — | — | — | — | — | B22（CI 仅 wasm）→ **已落地** | L5：本地 wasm/native 同套用例各 170/170（2026-11-19）；CI 新增 `l5-native` job |
+| C6 | 双目标等价 | — | — | — | — | — | B22（开发前 CI 仅 wasm）→ **门禁已配置** | CI 已新增 `l5-native` job；2026-11-19 历史实测 wasm/native 各 170/170，当前 170/171 含 1 失败，待代码修复后复验 |
 
 ### 6.2 错误变体触发簿记（20/20 强制，现状 20/20）
 
@@ -178,7 +178,7 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 
 ## 7. L4 CLI 场景 E2E
 
-**现状（2026-11-19 落地）**：B22 已闭合。L4 按 §9「二选一，倾向前者」选择 **`moon test` 原生承载**，落在 `cmd/cli/cli_e2e_test.mbt`（17 执行用例），无脚本层依赖。承载方式：CLI 逻辑收敛到库包 `cmd/cli`（`cmd/main` 仅进程入口），把「选项解析 + 校验 + 解析 + 渲染」收敛为 `cmd_dump_core`（输出经 `Sink`），并以公开入口 `cli_run(args, input : Bytes, arsc : Bytes?) -> CliResult` 接受**内存字节**输入、捕获 stdout/stderr 行与退出码；真实文件入口 `cmd_dump`/`run` 逐字节契约不变。夹具全部程序化构造（合成 `AxmlDoc`/`ResTable` 经 `encode`/`encode_arsc` 往返；手工构造 Store 型 ZIP 覆盖 APK 直读），不依赖外部样本。
+**现状（2026-11-19 落地）**：B22 的自动化缺口已闭合。L4 按 §9「二选一，倾向前者」选择 **`moon test` 原生承载**，落在 `cmd/cli/cli_e2e_test.mbt`（18 个执行用例），无脚本层依赖。承载方式：CLI 逻辑收敛到库包 `cmd/cli`（`cmd/main` 仅进程入口），把「选项解析 + 校验 + 解析 + 渲染」收敛为 `cmd_dump_core`（输出经 `Sink`），并以公开入口 `cli_run(args, input : Bytes, arsc : Bytes?) -> CliResult` 接受**内存字节**输入、捕获 stdout/stderr 行与退出码；真实文件入口 `cmd_dump`/`run` 逐字节契约不变。夹具全部程序化构造（合成 `AxmlDoc`/`ResTable` 经 `encode`/`encode_arsc` 往返；手工构造 Store 型 ZIP 覆盖 APK 直读），不依赖外部样本。
 
 | 场景 | 命令序列 | 断言要点（退出码+输出） | 落地用例 |
 |---|---|---|---|
@@ -196,7 +196,7 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 ## 8. L5 元契约门禁
 
 1. **快照门禁**（已有，B21）：`moon info` + `git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti cmd/cli/pkg.generated.mbti tools/check_fixtures/pkg.generated.mbti tools/genconfig/pkg.generated.mbti`；W3–W9 合入时 diff 必须**纯加法**（新 pub fn/struct/enum），零新错误变体。
-2. **双目标等价**（✔ 已落地 2026-11-19）：同一套 `moon test` 用例在 wasm 与 native 两目标全绿（本仓库测试无 target 分支逻辑）；本地实测 wasm 170/170 + native 170/170；CI 新增 `l5-native` job（ubuntu-latest，`moon test --target native`）。
+2. **双目标等价**（门禁已配置，当前有失败）：CI 已新增 `l5-native` job（ubuntu-latest，`moon test --target native`），不再是「CI 仅 wasm」。2026-11-19 历史实测为 wasm 170/170 + native 170/170；当前基线为 170/171（1 失败、3 `#skip`），须先定位并修复失败，不得把历史全绿写成当前状态。
 3. **错误簿记门禁**（W2 建立）：§6.2 与测试代码双向核对，缺一即红（T-W2-2）。
 4. **变异自检**（✔ 已完成 2026-11-19，红→绿实证）：注入 3 类缺陷逐一验证套件变红后还原复绿——
    - 字符串计数校验 off-by-one（`decode.mbt` `>` → `>=`）→ 3+ 用例红（`BadPool`：golden arsc tvshell/base、`arsc real: base.apk 空资源表`）；
@@ -214,8 +214,8 @@ R runner：样本仓库外路径 + 登记哈希 → 哈希不符拒绝执行 →
 ```powershell
 moon check --deny-warn
 moon build
-moon test            # 基线：170/170 执行通过 + 3 #skip（2026-11-19，缺口修复轮落地后）
-moon test --target native   # L5 双目标：同套用例 native 全绿（170/170）
+moon test            # 当前基线：170/171（1 失败）+ 3 #skip；历史 170/170 不再代表当前状态
+moon test --target native   # L5 双目标门禁；历史 170/170，当前须复验失败项
 moon run tools/check_fixtures   # T-W2-3：registered=12 embedded=9 failures=0，exit 0
 moon fmt --check
 moon info
@@ -237,7 +237,7 @@ git diff --exit-code -- pkg.generated.mbti cmd/main/pkg.generated.mbti cmd/cli/p
 - [x] L2：双通道一致性（W2，T-W2-3 2026-11-19 落地：`tools/check_fixtures` 三链校验 + CI Gate 3b；9/12 内嵌逐字节 + 12/12 哈希 + 3 个畸形样本「仅哈希」显式状态；篡改红→还原绿实证）；内嵌字节单通道继续由 `moon test` 回归
 - [ ] L3：aapt2 差分本地复核 + 版本登记（可选，SKIPPED 纪律；外部 oracle 依赖，未立项）
 - [x] L4：CLI 退出码矩阵 0/1/2 逐例 + 记录行冻结（`cmd/cli/cli_e2e_test.mbt` 18 例 + `cli_golden_test.mbt` 22 场景基线；T-W3-3 已验证、T-W3-4 已自动化）
-- [x] L5：快照纯加法（每包已过）；双目标差分（2026-11-19：本地 wasm/native 各 170/170 + CI `l5-native` job）；变异自检 3 缺陷红→绿（2026-11-19 实证，见 §8.4）
+- [ ] L5：快照纯加法（每包已过）；双目标门禁已配置（CI `l5-native` job，2026-11-19 历史实测 wasm/native 各 170/170），但当前 170/171 含 1 个失败，待修复后复验；变异自检 3 缺陷红→绿（2026-11-19 实证，见 §8.4）
 - [ ] R：仓库外样本 runner + 哈希门禁（真机 `#skip` 保留）
 - [x] W8 对应行（F12、P11）：**已实现**（encode 往返 T-W8-1/2/3 已落地并进入通过计数；encode 产物已入 L1 截断扫描集）。W9 对应行（arsc encode_arsc 值级回编）**已实现**（T-W9-1/2/3/4/5 已落地；encode_arsc 产物已入 L1 截断扫描集）。
 - [ ] W7 对应行（F11 overlay/idmap）：**已裁决非目标**（M3/M4 两次排除），声明降级/维持不立项；不得改为通过。
